@@ -1016,11 +1016,11 @@ available_tasks()
     if(level.script == "zm_transit")
     {
 	    available_tasks[available_tasks.size] = "Extra Crispy"; 
-        available_tasks[available_tasks.size] = "Need Glasses?";
     }
     if(level.script == "zm_transit" && getdvar ( "g_gametype")  == "zclassic"))
     {
     	available_tasks[available_tasks.size] = "Disoriantated";
+	available_tasks[available_tasks.size] = "Need Glasses?";
     }
     if((getdvar( "mapname" ) == "zm_transit" && getdvar ( "g_gametype")  == "zclassic") || level.script == "zm_tomb" /*|| level.script == "zm_prison"*/ || level.script == "zm_buried")
     {
