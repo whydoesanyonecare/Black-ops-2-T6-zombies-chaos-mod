@@ -371,7 +371,7 @@ progress_bar(left, center, right)
         self.progress_bar.barframe.y = 0;
         self.progress_bar.barframe.hidewheninmenu = 1;
     }
-    progress_timer = 300; //600
+    progress_timer = 600; //600
     time = 0;
 	while(1)
 	{
