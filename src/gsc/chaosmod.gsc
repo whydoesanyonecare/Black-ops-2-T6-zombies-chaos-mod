@@ -1017,7 +1017,7 @@ available_tasks()
     {
 	    available_tasks[available_tasks.size] = "Extra Crispy"; 
     }
-    if(level.script == "zm_transit" && getdvar ( "g_gametype")  == "zclassic"))
+    if(level.script == "zm_transit" && getdvar ( "g_gametype")  == "zclassic")
     {
     	available_tasks[available_tasks.size] = "Disoriantated";
 	available_tasks[available_tasks.size] = "Need Glasses?";
