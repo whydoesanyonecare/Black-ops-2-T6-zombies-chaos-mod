@@ -2461,7 +2461,7 @@ headshots()
         }
         wait .5;
 	}
-    level.headshots_only = 1;
+    level.headshots_only = 0;
 }
 
 raygun_always()
