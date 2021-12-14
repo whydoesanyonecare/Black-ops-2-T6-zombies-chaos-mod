@@ -1,7 +1,5 @@
 //Bo2 zombies Chaos Mode
 
-//IDEAS: Randomized Wallbuys
-
 //FIX: Add correct perk machine angles to all maps [Transit, Buried and Origins is done] (motd cherry machine not moving)
 
 #include maps/mp/gametypes_zm/_hud_util;
@@ -27,14 +25,14 @@
 #include maps/mp/zombies/_zm_magicbox;
 #include patch/animscripts;
 #include maps/mp/gametypes/_globallogic_player;
+#include maps/mp/zm_transit_utility;
 init()
 {
-    level._effect[ "fire" ] = loadfx( "env/fire/fx_fire_zombie_torso" );
+    setdvar( "cg_gun_y", "0" ); //resets left side gun if game ended while active
+    setdvar( "bg_gravity", "800" ); //resets low gravity if game ended while active
     level thread onPlayerConnect();
     thread CheckForCurrentBox();
     level.get_player_perk_purchase_limit = ::get_player_perk_purchase_limit;
-	replaceFunc(maps/mp/zombies/_zm_magicbox::treasure_chest_think, ::custom_treasure_chest_think);
-	replaceFunc(maps/mp/zombies/_zm_audio::change_zombie_music, ::custom_change_zombie_music);
 }
 
 get_player_perk_purchase_limit()
@@ -60,27 +58,29 @@ onPlayerSpawned()
     self endon("disconnect");
 	level endon("game_ended");
     self waittill("spawned_player");
-    //self.score = 100000;
     self.jump_active = 0;
     self.super_melee_on = 0;
     self.bar = 0;
-    //self enableInvulnerability();
     self thread welcome_message();
     self thread PlayerDownedWatcher();
     for(;;)
     {
         self waittill("spawned_player");
+        if(!isdefined(self.timer_set))
+        {
+            self.timer_set = 600;
+        }
         if(self.bar == 0)
         {
-            self thread progress_bar(1,0,0);
+            self thread progress_bar(1,0,0,self.timer_set);
         }
         if(self.bar == 1)
         {
-            self thread progress_bar(0,1,0);
+            self thread progress_bar(0,1,0,self.timer_set);
         }
         if(self.bar == 2)
         {
-            self thread progress_bar(0,0,1);
+            self thread progress_bar(0,0,1,self.timer_set);
         }
     }
 }
@@ -142,9 +142,22 @@ welcome_message()
 	hud3.x = 0; 
 	hud3.y = 100; 
 	hud3.fontscale = 1.8;
-    hud3 setText("Press ^3F ^7/ ^BXENONButtonX^ to Start Game");
+    hud3.label = &"Press ^3[{+actionslot 2}] ^7to change timer ^1";
+    hud3 setvalue( 10 );
+    hud4 = create_simple_hud( self );
+	hud4.alignX = "center"; 
+	hud4.alignY = "top";
+	hud4.horzAlign = "center"; 
+	hud4.vertAlign = "center";
+	hud4.hidewheninmenu = 1;
+	hud4.font = "default";
+	hud4.x = 0; 
+	hud4.y = 125; 
+	hud4.fontscale = 1.8;
+    hud4 setText("Press ^3F ^7/ ^BXENONButtonX^ to Start Game");
     wait 1;
     self.bar = 0;
+    self.timer = 0;
     while(self.is_connected)
     {
         if(self.bar == 0)
@@ -167,19 +180,57 @@ welcome_message()
                 self.bar = 0;
             }
         }
+        if(self.timer == 0)
+        {
+            hud3 setValue( 10 );
+            self.time_set = 200;
+        }
+        if(self.timer == 1)
+        {
+            hud3 setValue( 20 );
+            self.time_set = 400;
+        }
+        if(self.timer == 2)
+        {
+            hud3 setValue( 30 );
+            self.time_set = 600;
+        }
+        if(self.timer == 3)
+        {
+            hud3 setValue( 40 );
+            self.time_set = 800;
+        }
+        if(self.timer == 4)
+        {
+            hud3 setValue( 50 );
+            self.time_set = 1000;
+        }
+        if(self.timer == 5)
+        {
+            hud3 setValue( 60 );
+            self.time_set = 1200;
+        }
+        if(self actionslottwobuttonpressed())
+        {
+            self.timer++;
+            if(self.timer > 5)
+            {
+                self.timer = 0;
+            }
+        }
         if(self usebuttonpressed())
         {
             if(self.bar == 0)
             {
-                self thread progress_bar(1,0,0);
+                self thread progress_bar(1,0,0,self.time_set);
             }
             if(self.bar == 1)
             {
-                self thread progress_bar(0,1,0);
+                self thread progress_bar(0,1,0,self.time_set);
             }
             if(self.bar == 2)
             {
-                self thread progress_bar(0,0,1);
+                self thread progress_bar(0,0,1,self.time_set);
             }
             break;
         }
@@ -189,6 +240,7 @@ welcome_message()
     hud0 destroy();
     hud2 destroy();
     hud3 destroy();
+    hud4 destroy();
 }
 
 PlayerDownedWatcher()
@@ -266,7 +318,7 @@ PlayerDownedWatcher()
 	}
 }
 
-progress_bar(left, center, right)
+progress_bar(left, center, right, progress_timer)
 {
     self endon("disconnect");
     self endon("end_task_progress");
@@ -371,7 +423,6 @@ progress_bar(left, center, right)
         self.progress_bar.barframe.y = 0;
         self.progress_bar.barframe.hidewheninmenu = 1;
     }
-    progress_timer = 600; //600
     time = 0;
 	while(1)
 	{
@@ -422,7 +473,6 @@ randomize_task(left, center, right)
     possiblelist = self tasks_done(available_tasks);
     task = possiblelist[randomInt(possiblelist.size)];
     self.task_array[self.task_array.size] = task;
-    //iprintln(possiblelist.size);
     if(possiblelist.size < 20)
     {
         self.task_array = [];
@@ -505,6 +555,24 @@ timer(left, center, right)
         {
             wait .05;
         }
+        if(self.timer == 0)
+        {
+            if(i == 20)
+            {
+                timer.y += 21;
+            }
+            if(i == 10)
+            {
+                timer.y += 21;
+            }
+        }
+        if(self.timer == 1)
+        {
+            if(i == 10)
+            {
+                timer.y += 21;
+            }
+        }
         timer setValue( i );
         wait 1;
     }
@@ -523,7 +591,7 @@ start_task(task, left, center, right)
         task_hud.horzalign = "user_center";
         task_hud.vertalign = "user_top";
         task_hud.x = 0;
-        if(task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
+        if(task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
         {
             self thread timer(0,1,0);
         }
@@ -535,7 +603,7 @@ start_task(task, left, center, right)
         task_hud.horzalign = "user_right";
         task_hud.vertalign = "user_top";
         task_hud.x = -5; 
-        if(task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
+        if(task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
         {
             self thread timer(0,0,1);
         }
@@ -547,7 +615,7 @@ start_task(task, left, center, right)
         task_hud.horzalign = "user_left";
         task_hud.vertalign = "user_top";
         task_hud.x = 5; 
-        if(task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
+        if(task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
         {
             self thread timer(1,0,0);
         }
@@ -971,9 +1039,6 @@ start_task(task, left, center, right)
         case "I Am So Tired":
             self thread tired();
             break;
-        case "Change Vision":
-            self thread night_mode();
-            break;
         default:
             break;
     }
@@ -1015,12 +1080,15 @@ available_tasks()
     }
     if(level.script == "zm_transit")
     {
-	    available_tasks[available_tasks.size] = "Extra Crispy"; 
+	    available_tasks[available_tasks.size] = "Extra Crispy";
+        if( getdvar ( "g_gametype")  == "zclassic" )
+        {
+            available_tasks[available_tasks.size] = "Need Glasses?";
+        }
     }
     if(level.script == "zm_transit" && getdvar ( "g_gametype")  == "zclassic")
     {
     	available_tasks[available_tasks.size] = "Disoriantated";
-	available_tasks[available_tasks.size] = "Need Glasses?";
     }
     if((getdvar( "mapname" ) == "zm_transit" && getdvar ( "g_gametype")  == "zclassic") || level.script == "zm_tomb" /*|| level.script == "zm_prison"*/ || level.script == "zm_buried")
     {
@@ -1076,7 +1144,6 @@ available_tasks()
     available_tasks[available_tasks.size] = "Earthquake";
     available_tasks[available_tasks.size] = "Random Zombie Models";
     available_tasks[available_tasks.size] = "I Am So Tired";
-    available_tasks[available_tasks.size] = "Change Vision";
 	return available_tasks;
 }
 
@@ -1170,40 +1237,31 @@ CheckForCurrentBox()
     {
         wait 10;
     }
-    while(1)
+    for(i = 0; i < level.chests.size; i++)
     {
-        for(i = 0; i < level.chests.size; i++)
-        {
-            if (!is_true( level.chests[ i ].hidden ) && level.zombie_vars[ "zombie_powerup_fire_sale_on" ] == 0)
-            {
-                level.chests[i] thread reset_box();
-            }
-            level.chests[i].zbarrier thread Tellme();
-        }
-		level waittill("RunScriptAgain");
-    }
-}
-
-Tellme()
-{
-    while(1)
-    {
-        self waittill( "arrived" );
-        if (level.zombie_vars[ "zombie_powerup_fire_sale_on" ] == 0)
-        {
-            level notify("RunScriptAgain");
-        }
-    }
+        level.chests[ i ] thread reset_box();
+		if(level.chests[ i ].hidden)
+    	{
+			level.chests[ i ] get_chest_pieces();
+    	}
+		if(!level.chests[ i ].hidden)
+		{
+			level.chests[ i ].unitrigger_stub.prompt_and_visibility_func = ::boxtrigger_update_prompt;
+		}
+	}
 }
 
 reset_box()
 {
 	self notify("kill_chest_think");
-	self.grab_weapon_hint = 0;
     wait .1;
-    self thread maps/mp/zombies/_zm_unitrigger::register_static_unitrigger( self.unitrigger_stub, ::magicbox_unitrigger_think );
-    self.unitrigger_stub run_visibility_function_for_all_triggers();
-    self thread custom_treasure_chest_think();
+	if(!self.hidden)
+    {
+		self.grab_weapon_hint = 0;
+		self thread maps/mp/zombies/_zm_unitrigger::register_static_unitrigger( self.unitrigger_stub, ::magicbox_unitrigger_think );
+    	self.unitrigger_stub run_visibility_function_for_all_triggers();
+	}
+	self thread custom_treasure_chest_think();
 }
 
 custom_treasure_chest_think()
@@ -1317,7 +1375,7 @@ custom_treasure_chest_think()
 	self thread watch_for_emp_close();
 	if ( isDefined( level.using_locked_magicbox ) && level.using_locked_magicbox )
 	{
-		self thread maps/mp/zombies/_zm_magicbox_lock::watch_for_lock();
+		self thread custom_watch_for_lock();
 	}
 	self._box_open = 1;
 	level.box_open = 1;
@@ -1430,6 +1488,19 @@ custom_treasure_chest_think()
 	self.chest_user = undefined;
 	self notify( "chest_accessed" );
 	self thread custom_treasure_chest_think();
+}
+
+custom_watch_for_lock()
+{
+    self endon( "user_grabbed_weapon" );
+    self endon( "chest_accessed" );
+    self waittill( "box_locked" );
+    self notify( "kill_chest_think" );
+    self.grab_weapon_hint = 0;
+    wait 0.1;
+    self thread maps/mp/zombies/_zm_unitrigger::register_static_unitrigger( self.unitrigger_stub, ::magicbox_unitrigger_think );
+    self.unitrigger_stub run_visibility_function_for_all_triggers();
+    self thread custom_treasure_chest_think();
 }
 
 caffinated()
@@ -1598,7 +1669,7 @@ out_of_body()
         wait .5;
     }
     self set_third_person( 0 );
-    wait 1;
+    wait .5;
     self resetfov();
 }
 
@@ -2564,59 +2635,6 @@ flash()
     self show();
 }
 
-deathops()
-{
-	self endon( "disconnect" );
-	self endon( "stop_camera" );
-    setdvar("r_fog", "0");
-	self setmovespeedscale( 1.2 );
-	birdseyecamera = spawnsm( self.origin + ( 0, 0, 500 ), "tag_origin" );
-	birdseyecamera.angles = ( 90, 90, 0 );
-	self camerasetlookat( birdseyecamera );
-	self camerasetposition( birdseyecamera );
-	self cameraactivate( 1 );
-	self thread disableontoggle( birdseyecamera );
-	temporaryoffset = 500;
-	while( 1 )
-	{
-        birdseyecamera.origin = ( self.origin + ( 0, 0, 500 ));
-		sightpassed = sighttracepassed( self.origin + ( 0, 0, 500 ), self.origin, 0, birdseyecamera );
-		if( birdseyecamera.origin[ 2] - ( self.origin[ 2] < 500 ) && sightpassed )
-		{
-			temporaryoffset -= self.origin[ 2];
-		    while( temporaryoffset < 500 )
-			{
-				temporaryoffset = temporaryoffset + 10;
-				birdseyecamera.origin += ( 0, 0, temporaryoffset );
-				wait .01;
-			}
-		}
-		self setplayerangles( self getplayerangles() * ( 0, 1, 0 ) );
-		wait .001;
-	}
-
-}
-
-disableontoggle( obj )
-{
-	self waittill( "stop_camera" );
-	self cameraactivate( 0 );
-	obj delete();
-
-}
-
-spawnsm( origin, model, angles )
-{
-    ent = spawn( "script_model", origin );
-    ent setmodel( model );
-    if( IsDefined( angles ) )
-    {
-        ent.angles = angles;
-    }
-    return ent;
-}
-
-
 gravity()
 {
     self endon("death");
@@ -2639,7 +2657,6 @@ gungame()
 	self endon( "disconnect" );
 	keys = getarraykeys( level.zombie_weapons );
 	weaps = array_randomize( keys );
-	//self takeallweapons();
 	weapons = self getWeaponsListPrimaries();
     if(weapons.size > 2 && self hasperk("specialty_additionalprimaryweapon"))
     {
@@ -2673,45 +2690,6 @@ gungame()
     }
 }
 
-flame()
-{
-	self endon( "Stop_FlameTrowher" );
-	//self takeallweapons();
-	//self giveweapon( "defaultweapon_mp" );
-	//self switchtoweapon( "defaultweapon_mp" );
-	//self givemaxammo( "defaultweapon_mp" );
-	while( 1 )
-	{
-		self waittill( "weapon_fired" );
-		forward = self gettagorigin( "j_head" );
-		end = self thread vector_scal( anglestoforward( self getplayerangles() ), 1000000 );
-		crosshair = bullettrace( forward, end, 0, self )[ "position"];
-		magicbullet( self getcurrentweapon(), self gettagorigin( "j_shouldertwist_le" ), crosshair, self );
-        self thread flames(crosshair);
-		radiusdamage( crosshair, 100, 15, 15, self );
-	}
-}
-
-flames(crosshair)
-{
-	source_pos = self gettagorigin( "tag_weapon_right" );
-	target_pos = crosshair;
-	flame_fx = spawn( "script_model", source_pos );
-	flame_fx setmodel( "tag_origin" );
-	wait .1;
-	fx = playfxontag( level._effect[ "fire" ], flame_fx, "tag_origin" );
-	flame_fx moveto( target_pos, 1 );
-	flame_fx waittill( "movedone" );
-	flame_fx delete();
-}
-
-vector_scal( vec, scale )
-{
-	vec = ( vec[ 0] * scale, vec[ 1] * scale, vec[ 2] * scale );
-	return vec;
-
-}
-
 obj_to_space( obj )
 {
 	firework = spawn( "script_model", self.origin + ( 0, 0, 53 ) );
@@ -2726,7 +2704,7 @@ obj_to_space( obj )
 
 fake_end_game()
 {
-    self thread maps/mp/zombies/_zm_audio::change_zombie_music( "game_over" );
+    self thread custom_change_zombie_music( "game_over" );
     game_over = newclienthudelem( self );
     game_over.alignx = "center";
     game_over.aligny = "middle";
@@ -2888,51 +2866,6 @@ randomize_models()
     }
 }
 
-
-night_mode()
-{
-    if(!isdefined(self.vision_set))
-    {
-        self.vision_set = 0;
-    }
-    if(!self.vision_set)
-    {
-        self.vision_set = 1;
-        self setclientdvar( "r_dof_enable", 0 );
-        self setclientdvar( "r_lodBiasRigid", -1000 );
-        self setclientdvar( "r_lodBiasSkinned", -1000 );
-        self setclientdvar( "r_enablePlayerShadow", 1 );
-        self setclientdvar( "r_skyTransition", 1 );
-        self setclientdvar( "sm_sunquality", 2 );
-        self setclientdvar( "vc_fbm", "0 0 0 0" );
-        self setclientdvar( "vc_fsm", "1 1 1 1" );
-        self setclientdvar( "r_filmUseTweaks", 1 );
-        self setclientdvar( "r_bloomTweaks", 1 );
-        self setclientdvar( "r_exposureTweak", 1 );
-        self setclientdvar( "vc_rgbh", "0.1 0 0.3 0" );
-        self setclientdvar( "vc_yl", "0 0 0.25 0" );
-        self setclientdvar( "vc_yh", "0.02 0 0.1 0" );
-        self setclientdvar( "vc_rgbl", "0.02 0 0.1 0" );
-        self setclientdvar( "r_exposureValue", 3.9 );
-        self setclientdvar( "r_lightTweakSunLight", 1 );
-        self setclientdvar( "r_sky_intensity_factor0", 0 );
-    }
-    else
-    {
-        self.vision_set = 0;
-        self setclientdvar( "r_dof_enable", 0 );
-        self setclientdvar( "r_skyTransition", 0 );
-        self setclientdvar( "vc_fbm", "0 0 0 0" );
-        self setclientdvar( "vc_fsm", "1 1 1 1" );
-        self setclientdvar( "vc_rgbh", "0 0 0 0" );
-        self setclientdvar( "vc_yl", "0 0 0 0" );
-        self setclientdvar( "vc_yh", "0 0 0 0" );
-        self setclientdvar( "vc_rgbl", "0 0 0 0" );
-        self setclientdvar( "r_exposureValue", 3 );
-        self setclientdvar( "r_sky_intensity_factor0", 1 );
-    }
-}
-
 tired()
 {
 	fadetoblack = newclienthudelem( self );
@@ -3055,380 +2988,3 @@ tired()
 	wait 3.2;
 	fadetoblack destroy();
 }
-
-/*
-Randomize_Perk_locations()
-{
-    if(!isdefined(level.last_perk_locations))
-    {
-        level.last_perk_locations = 6;
-    }
-    x = randomintrange(0,5);
-    if(x == level.last_perk_locations)
-    {
-        return Randomize_Perk_locations();
-    }
-    perk_locations = [];
-    if(getdvar("mapname") == "zm_transit")
-    {
-        if(get_players().size > 1)
-        {
-            if(x == 0)
-            {
-                perk_locations[0] = (-6710.5, 4993, -56);
-                perk_locations[1] = (-5470, -7859.5, 0);
-                perk_locations[2] = (8039, -4594, 264);
-                perk_locations[3] = (1810, 475, -56);
-                perk_locations[4] = (10946, 8308.77, -408);
-                perk_locations[5] = (1046, -1560, 128);
-            }
-            if(x == 1)
-            {
-                perk_locations[1] = (-6710.5, 4993, -56);
-                perk_locations[2] = (-5470, -7859.5, 0);
-                perk_locations[3] = (8039, -4594, 264);
-                perk_locations[4] = (1810, 475, -56);
-                perk_locations[5] = (10946, 8308.77, -408);
-                perk_locations[0] = (1046, -1560, 128);
-            }
-            if(x == 2)
-            {
-                perk_locations[2] = (-6710.5, 4993, -56);
-                perk_locations[3] = (-5470, -7859.5, 0);
-                perk_locations[4] = (8039, -4594, 264);
-                perk_locations[5] = (1810, 475, -56);
-                perk_locations[0] = (10946, 8308.77, -408);
-                perk_locations[1] = (1046, -1560, 128);
-            }
-            if(x == 3)
-            {
-                perk_locations[3] = (-6710.5, 4993, -56);
-                perk_locations[4] = (-5470, -7859.5, 0);
-                perk_locations[5] = (8039, -4594, 264);
-                perk_locations[0] = (1810, 475, -56);
-                perk_locations[1] = (10946, 8308.77, -408);
-                perk_locations[2] = (1046, -1560, 128);
-            }
-            if(x == 4)
-            {
-                perk_locations[4] = (-6710.5, 4993, -56);
-                perk_locations[5] = (-5470, -7859.5, 0);
-                perk_locations[0] = (8039, -4594, 264);
-                perk_locations[1] = (1810, 475, -56);
-                perk_locations[2] = (10946, 8308.77, -408);
-                perk_locations[3] = (1046, -1560, 128);
-            }
-        }
-        else
-        {
-            if(x == 0)
-            {
-                perk_locations[0] = (-6710.5, 4993, -56);
-                perk_locations[1] = (-5470, -7859.5, 0);
-                perk_locations[2] = (8039, -4594, 264);
-                perk_locations[3] = (1810, 475, -56);
-                perk_locations[4] = (1046, -1560, 128);
-            }
-            if(x == 1)
-            {
-                perk_locations[4] = (-6710.5, 4993, -56);
-                perk_locations[0] = (-5470, -7859.5, 0);
-                perk_locations[1] = (8039, -4594, 264);
-                perk_locations[2] = (1810, 475, -56);
-                perk_locations[3] = (1046, -1560, 128);
-            }
-            if(x == 2)
-            {
-                perk_locations[3] = (-6710.5, 4993, -56);
-                perk_locations[4] = (8039, -4594, 264);
-                perk_locations[0] = (-5470, -7859.5, 0);
-                perk_locations[1] = (1810, 475, -56);
-                perk_locations[2] = (1046, -1560, 128);
-            }
-            if(x == 3)
-            {
-                perk_locations[2] = (-6710.5, 4993, -56);
-                perk_locations[3] = (-5470, -7859.5, 0);
-                perk_locations[4] = (8039, -4594, 264);
-                perk_locations[0] = (1810, 475, -56);
-                perk_locations[1] = (1046, -1560, 128);
-            }
-            if(x == 4)
-            {
-                perk_locations[1] = (-6710.5, 4993, -56);
-                perk_locations[2] = (-5470, -7859.5, 0);
-                perk_locations[3] = (8039, -4594, 264);
-                perk_locations[4] = (1810, 475, -56);
-                perk_locations[0] = (1046, -1560, 128);
-            }
-        }
-    }
-    if(getdvar("mapname") == "zm_prison")
-    {
-        if(x == 0)
-        {
-            perk_locations[2] = (326, 9144, 1128);
-            perk_locations[3] = (1185.02, 9670.9, 1544);
-            perk_locations[4] = (3988.02, 9523.9, 1528);
-            perk_locations[6] = (473.92, 6638.99, 208);
-            perk_locations[9] = (-461.37, 8647.38, 1336);
-            //perk_locations[9] = (1202.75, 9679.25, 1544);
-        }
-        if(x == 1)
-        {
-            perk_locations[9] = (326, 9144, 1128);
-            perk_locations[2] = (1185.02, 9670.9, 1544);
-            perk_locations[3] = (3988.02, 9523.9, 1528);
-            perk_locations[4] = (473.92, 6638.99, 208);
-            perk_locations[6] = (-461.37, 8647.38, 1336);
-        }
-        if(x == 2)
-        {
-            perk_locations[6] = (326, 9144, 1128);
-            perk_locations[9] = (1185.02, 9670.9, 1544);
-            perk_locations[2] = (3988.02, 9523.9, 1528);
-            perk_locations[3] = (473.92, 6638.99, 208);
-            perk_locations[4] = (-461.37, 8647.38, 1336);
-        }
-        if(x == 3)
-        {
-            perk_locations[4] = (326, 9144, 1128);
-            perk_locations[6] = (1185.02, 9670.9, 1544);
-            perk_locations[9] = (3988.02, 9523.9, 1528);
-            perk_locations[2] = (473.92, 6638.99, 208);
-            perk_locations[3] = (-461.37, 8647.38, 1336);
-        }
-        if(x == 4)
-        {
-            perk_locations[3] = (326, 9144, 1128);
-            perk_locations[4] = (1185.02, 9670.9, 1544);
-            perk_locations[6] = (3988.02, 9523.9, 1528);
-            perk_locations[9] = (473.92, 6638.99, 208);
-            perk_locations[2] = (-461.37, 8647.38, 1336);
-        }
-    }
-    if(getdvar("mapname") == "zm_tomb")
-    {
-        if(x == 0)
-        {
-            perk_locations[0] = (2328, -232, 139);
-            perk_locations[1] = (-2355.03, -36.34, 240);
-            perk_locations[3] = (2360, 5096, -304);
-            perk_locations[4] = (888, 3288, -168);
-            perk_locations[7] = (0, -480, -496);
-        }
-        if(x == 1)
-        {
-            perk_locations[7] = (2328, -232, 139);
-            perk_locations[0] = (-2355.03, -36.34, 240);
-            perk_locations[1] = (2360, 5096, -304);
-            perk_locations[3] = (888, 3288, -168);
-            perk_locations[4] = (0, -480, -496);
-        }
-        if(x == 2)
-        {
-            perk_locations[4] = (2328, -232, 139);
-            perk_locations[7] = (-2355.03, -36.34, 240);
-            perk_locations[0] = (2360, 5096, -304);
-            perk_locations[1] = (888, 3288, -168);
-            perk_locations[3] = (0, -480, -496);
-        }
-        if(x == 3)
-        {
-            perk_locations[3] = (2328, -232, 139);
-            perk_locations[4] = (-2355.03, -36.34, 240);
-            perk_locations[7] = (2360, 5096, -304);
-            perk_locations[0] = (888, 3288, -168);
-            perk_locations[1] = (0, -480, -496);
-        }
-        if(x == 4)
-        {
-            perk_locations[1] = (2328, -232, 139);
-            perk_locations[3] = (-2355.03, -36.34, 240);
-            perk_locations[4] = (2360, 5096, -304);
-            perk_locations[7] = (888, 3288, -168);
-            perk_locations[0] = (0, -480, -496);
-        }
-    }
-    if(getdvar("mapname") == "zm_buried")
-    {
-        if(x == 0)
-        {
-            perk_locations[0] = (-665.13, 1069.13, 8);
-            perk_locations[1] = (2423, 10, 88);
-            perk_locations[2] = (-711, -1249.5, 140.5);
-            perk_locations[3] = (-926.31, -216.76, 288);
-            perk_locations[4] = (7017.63, 370.25, 108);
-            perk_locations[7] = (1450.33, 2302.68, 12);
-            perk_locations[10] = (141.25, 598, 175.75);
-        }
-        if(x == 1)
-        {
-            perk_locations[10] = (-665.13, 1069.13, 8);
-            perk_locations[0] = (2423, 10, 88);
-            perk_locations[1] = (-711, -1249.5, 140.5);
-            perk_locations[2] = (-926.31, -216.76, 288);
-            perk_locations[3] = (7017.63, 370.25, 108);
-            perk_locations[4] = (1450.33, 2302.68, 12);
-            perk_locations[7] = (141.25, 598, 175.75);
-        }
-        if(x == 2)
-        {
-            perk_locations[7] = (-665.13, 1069.13, 8);
-            perk_locations[10] = (2423, 10, 88);
-            perk_locations[0] = (-711, -1249.5, 140.5);
-            perk_locations[1] = (-926.31, -216.76, 288);
-            perk_locations[2] = (7017.63, 370.25, 108);
-            perk_locations[3] = (1450.33, 2302.68, 12);
-            perk_locations[4] = (141.25, 598, 175.75);
-        }
-        if(x == 3)
-        {
-            perk_locations[4] = (-665.13, 1069.13, 8);
-            perk_locations[7] = (2423, 10, 88);
-            perk_locations[10] = (-711, -1249.5, 140.5);
-            perk_locations[0] = (-926.31, -216.76, 288);
-            perk_locations[1] = (7017.63, 370.25, 108);
-            perk_locations[2] = (1450.33, 2302.68, 12);
-            perk_locations[3] = (141.25, 598, 175.75);
-        }
-        if(x == 4)
-        {
-            perk_locations[3] = (-665.13, 1069.13, 8);
-            perk_locations[4] = (2423, 10, 148);
-            perk_locations[7] = (-711, -1249.5, 140.5);
-            perk_locations[10] = (-926.31, -216.76, 288);
-            perk_locations[0] = (7017.63, 370.25, 108);
-            perk_locations[1] = (1450.33, 2302.68, 12);
-            perk_locations[2] = (141.25, 598, 175.75);
-        }
-    }
-    level.last_perk_locations = x;
-    vending_triggers = getentarray( "zombie_vending", "targetname" );
-	for (i = 0; i < vending_triggers.size; i++)
-	{
-		trig = vending_triggers[i];
-		if (IsDefined(trig.script_noteworthy) && trig.script_noteworthy == "specialty_quickrevive")
-		{
-			trig.clip.origin = perk_locations[0];
-            level.perk_locations_randomize = 1;
-		}
-        if (IsDefined(trig.script_noteworthy) && trig.script_noteworthy == "specialty_longersprint")
-		{
-			trig.clip.origin = perk_locations[1];
-            level.perk_locations_randomize = 1;
-		}
-        if (IsDefined(trig.script_noteworthy) && trig.script_noteworthy == "specialty_rof")
-		{
-			trig.clip.origin = perk_locations[2];
-            level.perk_locations_randomize = 1;
-		}
-        if (IsDefined(trig.script_noteworthy) && trig.script_noteworthy == "specialty_fastreload")
-		{
-			trig.clip.origin = perk_locations[3];
-            level.perk_locations_randomize = 1;
-		}
-        if (IsDefined(trig.script_noteworthy) && trig.script_noteworthy == "specialty_armorvest")
-		{
-			trig.clip.origin = perk_locations[4];
-            level.perk_locations_randomize = 1;
-		}
-        if(get_players().size > 1)
-        {
-            if (IsDefined(trig.script_noteworthy) && trig.script_noteworthy == "specialty_scavenger")
-            {
-                trig.clip.origin = perk_locations[5];
-                level.perk_locations_randomize = 1;
-            }
-        }
-        if (IsDefined(trig.script_noteworthy) && trig.script_noteworthy == "specialty_deadshot")
-		{
-			trig.clip.origin = perk_locations[6];
-            level.perk_locations_randomize = 1;
-		}
-        if (IsDefined(trig.script_noteworthy) && trig.script_noteworthy == "specialty_additionalprimaryweapon")
-		{
-			trig.clip.origin = perk_locations[7];
-            level.perk_locations_randomize = 1;
-		}
-        if (IsDefined(trig.script_noteworthy) && trig.script_noteworthy == "specialty_finalstand")
-		{
-			trig.clip.origin = perk_locations[8];
-            level.perk_locations_randomize = 1;
-		}
-        if (IsDefined(trig.script_noteworthy) && trig.script_noteworthy == "specialty_grenadepulldeath")
-		{
-			trig.clip.origin = perk_locations[9];
-            level.perk_locations_randomize = 1;
-		}
-        if (IsDefined(trig.script_noteworthy) && trig.script_noteworthy == "specialty_nomotionsensor")
-		{
-			trig.clip.origin = perk_locations[10];
-            level.perk_locations_randomize = 1;
-		}
-        if (IsDefined(trig.script_noteworthy) && trig.script_noteworthy == "specialty_flakjacket")
-		{
-			trig.clip.origin = perk_locations[11];
-            level.perk_locations_randomize = 1;
-		}
-        if(level.perk_locations_randomize && trig.script_noteworthy != "specialty_weapupgrade")
-        {
-            if(trig.clip.origin == (-6710.5, 4993, -56) || trig.clip.origin == (1046, -1560, 128) || trig.clip.origin == (2328, -232, 139) || trig.clip.origin == (141.25, 598, 175.75) || trig.clip.origin == (2423, 10, 88) || trig.clip.origin == (-711, -1249.5, 140.5))
-            {
-                trig.clip.angles = (0,180,0);
-            }
-            if(trig.clip.origin == (-5470, -7859.5, 0) || trig.clip.origin == (10946, 8308.77, -408))
-            {
-                trig.clip.angles = (0,270,0);
-            }
-            if(trig.clip.origin == (8039, -4594, 264) )
-            {
-                trig.clip.angles = (0, 2.50448e-006, 0);
-            }
-            if(trig.clip.origin == (1810, 475, -56) )
-            {
-                trig.clip.angles = (0,90,0);
-            }
-            if(trig.clip.origin == (-2355.03, -36.34, 240))
-            {
-                trig.clip.angles = (1.00179e-005, 225, -4.43583e-012);
-            }
-            if(trig.clip.origin == (0, -480, -496))
-            {
-                trig.clip.angles = (1.00179e-005, 180, 2.50447e-006);
-            }
-            if(trig.clip.origin == (2360, 5096, -304))
-            {
-                trig.clip.angles = (0, 6.83245e-007, 0);
-            }
-            if(trig.clip.origin == (888, 3288, -168))
-            {
-                trig.clip.angles = (1.00179e-005, 6.83245e-007, -1.31066e-012);
-            }
-            if(trig.clip.origin == (-665.13, 1069.13, 8))
-            {
-                trig.clip.angles = (0, 1.00179e-005, 0);
-            }
-            if(trig.clip.origin == (-926.31, -216.76, 288))
-            {
-                trig.clip.angles = (0, 0.599965, 0);
-            }
-            if(trig.clip.origin == (7017.63, 370.25, 108))
-            {
-                trig.clip.angles = (0, 239.8, 0);
-            }
-            if(trig.clip.origin == (1450.33, 2302.68, 12))
-            {
-                trig.clip.angles = (0, 340.2, 0);
-            }
-            trig.machine.origin = trig.clip.origin;
-            trig.bump.origin = trig.clip.origin;
-            trig.origin = trig.clip.origin + (0,0,20);
-            trig.machine.angles = trig.clip.angles;
-            trig.bump.angles = trig.clip.angles;
-            trig.angles = trig.clip.angles;
-            level.perk_locations_randomize = 0;
-        }
-	}
-}
-*/
