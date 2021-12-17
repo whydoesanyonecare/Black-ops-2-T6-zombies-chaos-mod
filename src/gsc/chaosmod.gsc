@@ -1537,15 +1537,23 @@ god()
 {
     self endon("end_task_progress");
     self enableInvulnerability();
+    god.enabled = 1;
     for(i=0;i<60;i++)
     {
         while(self maps/mp/zombies/_zm_laststand::player_is_in_laststand() || isdefined(self.afterlife) && self.afterlife)
         {
+            god.enabled = 0;
             wait .05;
+        }
+        if(!god.enabled)
+        {
+            god.enabled = 1;
+            self enableInvulnerability();
         }
         wait .5;
     }
     self disableInvulnerability();
+    god.enabled = 0;
 }
 
 powerups()
