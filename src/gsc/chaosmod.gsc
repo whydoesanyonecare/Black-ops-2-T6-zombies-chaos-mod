@@ -33,6 +33,13 @@ init()
     level thread onPlayerConnect();
     thread CheckForCurrentBox();
     level.get_player_perk_purchase_limit = ::get_player_perk_purchase_limit;
+    flag_wait("initial_blackscreen_passed");
+    level.player_too_many_weapons_monitor_callback = ::noweaponremove;
+}
+
+noweaponremove()
+{
+    return false;
 }
 
 get_player_perk_purchase_limit()
@@ -61,6 +68,7 @@ onPlayerSpawned()
     self.jump_active = 0;
     self.super_melee_on = 0;
     self.bar = 0;
+    self.has_mp_perks = 0;
     self thread welcome_message();
     self thread PlayerDownedWatcher();
     for(;;)
@@ -591,7 +599,7 @@ start_task(task, left, center, right)
         task_hud.horzalign = "user_center";
         task_hud.vertalign = "user_top";
         task_hud.x = 0;
-        if(task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
+        if(task == "I Am So Tired" || task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
         {
             self thread timer(0,1,0);
         }
@@ -603,7 +611,7 @@ start_task(task, left, center, right)
         task_hud.horzalign = "user_right";
         task_hud.vertalign = "user_top";
         task_hud.x = -5; 
-        if(task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
+        if(task == "I Am So Tired" || task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
         {
             self thread timer(0,0,1);
         }
@@ -615,7 +623,7 @@ start_task(task, left, center, right)
         task_hud.horzalign = "user_left";
         task_hud.vertalign = "user_top";
         task_hud.x = 5; 
-        if(task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
+        if(task == "I Am So Tired" || task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
         {
             self thread timer(1,0,0);
         }
@@ -966,54 +974,110 @@ start_task(task, left, center, right)
             self thread need_glasses();
             break;
         case "All MP Perks":
-            self setperk( "specialty_armorpiercing" );
-            self setperk( "specialty_bulletaccuracy" );
-            self setperk( "specialty_bulletdamage" );
-            self setperk( "specialty_bulletflinch" );
-            self setperk( "specialty_bulletpenetration" );
-            self setperk( "specialty_delayexplosive" );
-            self setperk( "specialty_detectexplosive" );
-            self setperk( "specialty_disarmexplosive" );
-            self setperk( "specialty_earnmoremomentum" );
-            self setperk( "specialty_explosivedamage" );
-            self setperk( "specialty_extraammo" );
-            self setperk( "specialty_fastads" );
-            self setperk( "specialty_fastequipmentuse" );
-            self setperk( "specialty_fastladderclimb" );
-            self setperk( "specialty_fastmantle" );
-            self setperk( "specialty_fastmeleerecovery" );
-            self setperk( "specialty_fasttoss" );
-            self setperk( "specialty_fastweaponswitch" );
-            self setperk( "specialty_fireproof" );
-            self setperk( "specialty_flashprotection" );
-            self setperk( "specialty_gpsjammer" );
-            self setperk( "specialty_healthregen" );
-            self setperk( "specialty_holdbreath" );
-            self setperk( "specialty_immunecounteruav" );
-            self setperk( "specialty_immunemms" );
-            self setperk( "specialty_immunenvthermal" );
-            self setperk( "specialty_immunerangefinder" );
-            self setperk( "specialty_killstreak" );
-            self setperk( "specialty_loudenemies" );
-            self setperk( "specialty_marksman" );
-            self setperk( "specialty_movefaster" );
-            self setperk( "specialty_noname" );
-            self setperk( "specialty_nottargetedbyairsupport" );
-            self setperk( "specialty_nokillstreakreticle" );
-            self setperk( "specialty_nottargettedbysentry" );
-            self setperk( "specialty_pin_back" );
-            self setperk( "specialty_pistoldeath" );
-            self setperk( "specialty_proximityprotection" );
-            self setperk( "specialty_quieter" );
-            self setperk( "specialty_reconnaissance" );
-            self setperk( "specialty_showenemyequipment" );
-            self setperk( "specialty_stunprotection" );
-            self setperk( "specialty_shellshock" );
-            self setperk( "specialty_sprintrecovery" );
-            self setperk( "specialty_showonradar" );
-            self setperk( "specialty_stalker" );
-            self setperk( "specialty_twogrenades" );
-            self setperk( "specialty_twoprimaries" );
+            if(!self.has_mp_perks)
+            {
+                self setperk( "specialty_armorpiercing" );
+                self setperk( "specialty_bulletaccuracy" );
+                self setperk( "specialty_bulletdamage" );
+                self setperk( "specialty_bulletflinch" );
+                self setperk( "specialty_bulletpenetration" );
+                self setperk( "specialty_delayexplosive" );
+                self setperk( "specialty_detectexplosive" );
+                self setperk( "specialty_disarmexplosive" );
+                self setperk( "specialty_earnmoremomentum" );
+                self setperk( "specialty_explosivedamage" );
+                self setperk( "specialty_extraammo" );
+                self setperk( "specialty_fastads" );
+                self setperk( "specialty_fastequipmentuse" );
+                self setperk( "specialty_fastladderclimb" );
+                self setperk( "specialty_fastmantle" );
+                self setperk( "specialty_fastmeleerecovery" );
+                self setperk( "specialty_fasttoss" );
+                self setperk( "specialty_fastweaponswitch" );
+                self setperk( "specialty_fireproof" );
+                self setperk( "specialty_flashprotection" );
+                self setperk( "specialty_gpsjammer" );
+                self setperk( "specialty_healthregen" );
+                self setperk( "specialty_holdbreath" );
+                self setperk( "specialty_immunecounteruav" );
+                self setperk( "specialty_immunemms" );
+                self setperk( "specialty_immunenvthermal" );
+                self setperk( "specialty_immunerangefinder" );
+                self setperk( "specialty_killstreak" );
+                self setperk( "specialty_loudenemies" );
+                self setperk( "specialty_marksman" );
+                self setperk( "specialty_movefaster" );
+                self setperk( "specialty_noname" );
+                self setperk( "specialty_nottargetedbyairsupport" );
+                self setperk( "specialty_nokillstreakreticle" );
+                self setperk( "specialty_nottargettedbysentry" );
+                self setperk( "specialty_pin_back" );
+                self setperk( "specialty_pistoldeath" );
+                self setperk( "specialty_proximityprotection" );
+                self setperk( "specialty_quieter" );
+                self setperk( "specialty_reconnaissance" );
+                self setperk( "specialty_showenemyequipment" );
+                self setperk( "specialty_stunprotection" );
+                self setperk( "specialty_shellshock" );
+                self setperk( "specialty_sprintrecovery" );
+                self setperk( "specialty_showonradar" );
+                self setperk( "specialty_stalker" );
+                self setperk( "specialty_twogrenades" );
+                self setperk( "specialty_twoprimaries" );
+                self.has_mp_perks = 1;
+            }
+            else
+            {
+                self.has_mp_perks = 0;
+                self unsetperk( "specialty_armorpiercing" );
+                self unsetperk( "specialty_bulletaccuracy" );
+                self unsetperk( "specialty_bulletdamage" );
+                self unsetperk( "specialty_bulletflinch" );
+                self unsetperk( "specialty_bulletpenetration" );
+                self unsetperk( "specialty_delayexplosive" );
+                self unsetperk( "specialty_detectexplosive" );
+                self unsetperk( "specialty_disarmexplosive" );
+                self unsetperk( "specialty_earnmoremomentum" );
+                self unsetperk( "specialty_explosivedamage" );
+                self unsetperk( "specialty_extraammo" );
+                self unsetperk( "specialty_fastads" );
+                self unsetperk( "specialty_fastequipmentuse" );
+                self unsetperk( "specialty_fastladderclimb" );
+                self unsetperk( "specialty_fastmantle" );
+                self unsetperk( "specialty_fastmeleerecovery" );
+                self unsetperk( "specialty_fasttoss" );
+                self unsetperk( "specialty_fastweaponswitch" );
+                self unsetperk( "specialty_fireproof" );
+                self unsetperk( "specialty_flashprotection" );
+                self unsetperk( "specialty_gpsjammer" );
+                self unsetperk( "specialty_healthregen" );
+                self unsetperk( "specialty_holdbreath" );
+                self unsetperk( "specialty_immunecounteruav" );
+                self unsetperk( "specialty_immunemms" );
+                self unsetperk( "specialty_immunenvthermal" );
+                self unsetperk( "specialty_immunerangefinder" );
+                self unsetperk( "specialty_killstreak" );
+                self unsetperk( "specialty_loudenemies" );
+                self unsetperk( "specialty_marksman" );
+                self unsetperk( "specialty_movefaster" );
+                self unsetperk( "specialty_noname" );
+                self unsetperk( "specialty_nottargetedbyairsupport" );
+                self unsetperk( "specialty_nokillstreakreticle" );
+                self unsetperk( "specialty_nottargettedbysentry" );
+                self unsetperk( "specialty_pin_back" );
+                self unsetperk( "specialty_pistoldeath" );
+                self unsetperk( "specialty_proximityprotection" );
+                self unsetperk( "specialty_quieter" );
+                self unsetperk( "specialty_reconnaissance" );
+                self unsetperk( "specialty_showenemyequipment" );
+                self unsetperk( "specialty_stunprotection" );
+                self unsetperk( "specialty_shellshock" );
+                self unsetperk( "specialty_sprintrecovery" );
+                self unsetperk( "specialty_showonradar" );
+                self unsetperk( "specialty_stalker" );
+                self unsetperk( "specialty_twogrenades" );
+                self unsetperk( "specialty_twoprimaries" );
+            }
             break;
         case "Left Gun":
             self thread left_gun();
