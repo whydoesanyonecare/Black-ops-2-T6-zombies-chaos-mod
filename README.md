@@ -1,3 +1,7 @@
+# plutonium chaos mode with autocompiles
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 # Auto Compile GSC Scripts & Release via GitHub Actions
 
 When you commit to your repository, GitHub Actions will automatically compile and release your GSC.
