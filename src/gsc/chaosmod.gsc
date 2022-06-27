@@ -1,7 +1,3 @@
-//Bo2 zombies Chaos Mode
-
-//FIX: Add correct perk machine angles to all maps [Transit, Buried and Origins is done] (motd cherry machine not moving)
-
 #include maps/mp/gametypes_zm/_hud_util;
 #include maps/mp/zombies/_zm;
 #include maps/mp/zombies/_zm_perks;
@@ -28,18 +24,36 @@
 #include maps/mp/zm_transit_utility;
 init()
 {
+    setdvar( "party_connectToOthers", "0" );
+    setdvar( "partyMigrate_disabled", "1" );
+    setdvar( "party_mergingEnabled", "0" );
+    setdvar( "party_iamhost", "1" );
+    setdvar( "party_host", "1" );
+    setdvar( "allowAllNAT", "1" );
+    setDvar( "ui_errorMessage", "^9Thank you for playing this Custom Gamemode \n\n^3More Mods -> https://discord.com/invite/mtAsvArAJD \n \nCreated by Unknown Love" );
+    setDvar( "ui_errorTitle", "^1Chaos" );
     setdvar( "cg_gun_y", "0" ); //resets left side gun if game ended while active
     setdvar( "bg_gravity", "800" ); //resets low gravity if game ended while active
     level thread onPlayerConnect();
     thread CheckForCurrentBox();
     level.get_player_perk_purchase_limit = ::get_player_perk_purchase_limit;
     flag_wait("initial_blackscreen_passed");
-    level.player_too_many_weapons_monitor_callback = ::noweaponremove;
+    level thread destroy_in_end();
 }
 
-noweaponremove()
+destroy_in_end()
 {
-    return false;
+    level waittill("end_game");
+    for(i=0;i<get_players().size;i++)
+    {
+        get_players()[i].progress_bar destroy();
+        get_players()[i].progress_bar.bar destroy();
+        get_players()[i].progress_bar.barframe destroy();
+        foreach(task_hud in get_players()[i].task_list)
+        {
+            task_hud destroy();
+        }
+    }
 }
 
 get_player_perk_purchase_limit()
@@ -53,17 +67,56 @@ get_player_perk_purchase_limit()
 
 onPlayerConnect()
 {
+	level endon("end_game");
     for(;;)
     {
+        if(isDefined(level.player_too_many_weapons_monitor) && level.player_too_many_weapons_monitor)
+			level.player_too_many_weapons_monitor = 0;
         level waittill("connected", player);
         player thread onPlayerSpawned();
     }
 }
-
+/*
 onPlayerSpawned()
 {
     self endon("disconnect");
 	level endon("game_ended");
+    self.bar = 0;
+    self.new_spawns = 0;
+    for(;;)
+    {
+        self waittill("spawned_player");
+        self.jump_active = 0;
+        self.super_melee_on = 0;
+        self.has_mp_perks = 0;
+        self thread welcome_message();
+        self thread PlayerDownedWatcher();
+        if(!isdefined(self.timer_set))
+        {
+            self.timer_set = 600;
+        }
+        if(self.new_spawns > 1)
+        {
+            if(self.bar == 0)
+            {
+                self thread progress_bar(1,0,0,self.timer_set);
+            }
+            if(self.bar == 1)
+            {
+                self thread progress_bar(0,1,0,self.timer_set);
+            }
+            if(self.bar == 2)
+            {
+                self thread progress_bar(0,0,1,self.timer_set);
+            }
+        }
+    }
+}*/
+
+onPlayerSpawned()
+{
+    self endon("disconnect");
+	level endon("end_game");
     self waittill("spawned_player");
     self.jump_active = 0;
     self.super_melee_on = 0;
@@ -74,8 +127,10 @@ onPlayerSpawned()
     for(;;)
     {
         self waittill("spawned_player");
+        wait 3;
         if(!isdefined(self.timer_set))
         {
+            self.task_timer = 2;
             self.timer_set = 600;
         }
         if(self.bar == 0)
@@ -95,9 +150,16 @@ onPlayerSpawned()
 
 welcome_message()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self.is_connected = 1;
     flag_wait( "initial_blackscreen_passed" );
-    wait 3;
+    wait 1;
+    if( self.sessionstate == "spectator" )
+    {
+        self waittill("spawned_player");
+        wait 1;
+    }
     if(isDefined(self.e_afterlife_corpse))
     {
         while(isdefined(self.afterlife) && self.afterlife)
@@ -106,79 +168,86 @@ welcome_message()
         }
         wait 2;
     }
-    hud0 = create_simple_hud( self );
-	hud0.alignX = "center"; 
-	hud0.alignY = "top";
-	hud0.horzAlign = "center"; 
-	hud0.vertAlign = "center";
-	hud0.hidewheninmenu = 1;
-	hud0.font = "default";
-	hud0.x = 0; 
-	hud0.y = 25; 
-	hud0.fontscale = 2;
-    hud0 setText("Welcome to Chaos Mod");
-    hud = create_simple_hud( self );
-	hud.alignX = "center"; 
-	hud.alignY = "top";
-	hud.horzAlign = "center"; 
-	hud.vertAlign = "center";
-	hud.hidewheninmenu = 1;
-	hud.font = "default";
-	hud.x = 0; 
-	hud.y = 50; 
-	hud.fontscale = 2;
-    wait .5;
-    hud setText("Bar Location: ^1LEFT");
-    hud2 = create_simple_hud( self );
-	hud2.alignX = "center"; 
-	hud2.alignY = "top";
-	hud2.horzAlign = "center"; 
-	hud2.vertAlign = "center";
-	hud2.hidewheninmenu = 1;
-	hud2.font = "default";
-	hud2.x = 0; 
-	hud2.y = 75; 
-	hud2.fontscale = 1.8;
-    hud2 setText("Press ^3[{+actionslot 3}] ^7to change bar location ");
-    hud3 = create_simple_hud( self );
-	hud3.alignX = "center"; 
-	hud3.alignY = "top";
-	hud3.horzAlign = "center"; 
-	hud3.vertAlign = "center";
-	hud3.hidewheninmenu = 1;
-	hud3.font = "default";
-	hud3.x = 0; 
-	hud3.y = 100; 
-	hud3.fontscale = 1.8;
-    hud3.label = &"Press ^3[{+actionslot 2}] ^7to change timer ^1";
-    hud3 setvalue( 10 );
-    hud4 = create_simple_hud( self );
-	hud4.alignX = "center"; 
-	hud4.alignY = "top";
-	hud4.horzAlign = "center"; 
-	hud4.vertAlign = "center";
-	hud4.hidewheninmenu = 1;
-	hud4.font = "default";
-	hud4.x = 0; 
-	hud4.y = 125; 
-	hud4.fontscale = 1.8;
-    hud4 setText("Press ^3F ^7/ ^BXENONButtonX^ to Start Game");
-    wait 1;
+    self.hud[0] = create_simple_hud( self );
+	self.hud[0].alignX = "center"; 
+	self.hud[0].alignY = "top";
+	self.hud[0].horzAlign = "center"; 
+	self.hud[0].vertAlign = "center";
+	self.hud[0].hidewheninmenu = 1;
+	self.hud[0].font = "default";
+	self.hud[0].x = 0; 
+	self.hud[0].y = 50; 
+	self.hud[0].fontscale = 2;
+    self.hud[0] setText("Welcome to Chaos Mod");
+    self.hud[1] = create_simple_hud( self );
+	self.hud[1].alignX = "center"; 
+	self.hud[1].alignY = "top";
+	self.hud[1].horzAlign = "center"; 
+	self.hud[1].vertAlign = "center";
+	self.hud[1].hidewheninmenu = 1;
+	self.hud[1].font = "default";
+	self.hud[1].x = 0; 
+	self.hud[1].y = 75; 
+	self.hud[1].fontscale = 2;
+    self.hud[1] setText("Bar Location: ^1LEFT");
+    self.hud[2] = create_simple_hud( self );
+	self.hud[2].alignX = "center"; 
+	self.hud[2].alignY = "top";
+	self.hud[2].horzAlign = "center"; 
+	self.hud[2].vertAlign = "center";
+	self.hud[2].hidewheninmenu = 1;
+	self.hud[2].font = "default";
+	self.hud[2].x = 0; 
+	self.hud[2].y = 100; 
+	self.hud[2].fontscale = 1.8;
+    self.hud[2] setText("Press ^3[{+actionslot 3}] ^7to change bar location ");
+    self.hud[3] = create_simple_hud( self );
+	self.hud[3].alignX = "center"; 
+	self.hud[3].alignY = "top";
+	self.hud[3].horzAlign = "center"; 
+	self.hud[3].vertAlign = "center";
+	self.hud[3].hidewheninmenu = 1;
+	self.hud[3].font = "default";
+	self.hud[3].x = 0; 
+	self.hud[3].y = 125; 
+	self.hud[3].fontscale = 1.8;
+    self.hud[3].label = &"Press ^3[{+actionslot 2}] ^7to change timer ^1";
+    self.hud[3] setvalue( 10 );
+    self.hud[4] = create_simple_hud( self );
+	self.hud[4].alignX = "center"; 
+	self.hud[4].alignY = "top";
+	self.hud[4].horzAlign = "center"; 
+	self.hud[4].vertAlign = "center";
+	self.hud[4].hidewheninmenu = 1;
+	self.hud[4].font = "default";
+	self.hud[4].x = 0; 
+	self.hud[4].y = 150; 
+	self.hud[4].fontscale = 1.8;
+    self.hud[4] thread monitor_input(self);
     self.bar = 0;
-    self.timer = 0;
+    self.task_timer = 0;
     while(self.is_connected)
     {
+        /*if( self.sessionstate == "spectator" )
+		{
+			self.hud[0] destroy();
+            self.hud[1] destroy();
+            self.hud[2] destroy();
+            self.hud[3] destroy();
+            self.hud[4] destroy();
+			return 0;
+		}*/
         if(self.bar == 0)
         {
-            hud setText("Bar Location: ^1LEFT");
+            self.hud[1] setText("Bar Location: ^1LEFT");
         }
         if(self.bar == 1)
         {
-            hud setText("Bar Location: ^1CENTER");
+            self.hud[1] setText("Bar Location: ^1CENTER");
         }
         if(self.bar == 2)
         {
-            hud setText("Bar Location: ^1RIGHT");
+            self.hud[1] setText("Bar Location: ^1RIGHT");
         }
         if(self actionslotthreebuttonpressed())
         {
@@ -188,42 +257,42 @@ welcome_message()
                 self.bar = 0;
             }
         }
-        if(self.timer == 0)
+        if(self.task_timer == 0)
         {
-            hud3 setValue( 10 );
+            self.hud[3] setValue( 10 );
             self.time_set = 200;
         }
-        if(self.timer == 1)
+        if(self.task_timer == 1)
         {
-            hud3 setValue( 20 );
+            self.hud[3] setValue( 20 );
             self.time_set = 400;
         }
-        if(self.timer == 2)
+        if(self.task_timer == 2)
         {
-            hud3 setValue( 30 );
+            self.hud[3] setValue( 30 );
             self.time_set = 600;
         }
-        if(self.timer == 3)
+        if(self.task_timer == 3)
         {
-            hud3 setValue( 40 );
+            self.hud[3] setValue( 40 );
             self.time_set = 800;
         }
-        if(self.timer == 4)
+        if(self.task_timer == 4)
         {
-            hud3 setValue( 50 );
+            self.hud[3] setValue( 50 );
             self.time_set = 1000;
         }
-        if(self.timer == 5)
+        if(self.task_timer == 5)
         {
-            hud3 setValue( 60 );
+            self.hud[3] setValue( 60 );
             self.time_set = 1200;
         }
         if(self actionslottwobuttonpressed())
         {
-            self.timer++;
-            if(self.timer > 5)
+            self.task_timer++;
+            if(self.task_timer > 5)
             {
-                self.timer = 0;
+                self.task_timer = 0;
             }
         }
         if(self usebuttonpressed())
@@ -244,16 +313,38 @@ welcome_message()
         }
         wait .05;
     }
-    hud destroy();
-    hud0 destroy();
-    hud2 destroy();
-    hud3 destroy();
-    hud4 destroy();
+    self notify("selected");
+    self.hud[0] destroy();
+    self.hud[1] destroy();
+    self.hud[2] destroy();
+    self.hud[3] destroy();
+    self.hud[4] destroy();
+}
+
+monitor_input(player)
+{
+    player endon("selected");
+    player endon("disconnect");
+	level endon("end_game");
+    for(;;)
+    {
+        if(player GamepadUsedLast())
+        {
+            self setText("Press [{+usereload}] to Start Game");
+        }
+        else
+        {
+            self setText("Press ^3F ^7to Start Game");
+        }
+        wait .05;
+    }
 }
 
 PlayerDownedWatcher()
 {
-	while(1)
+    self endon("disconnect");
+	level endon("end_game");
+	for(;;)
 	{
 		self waittill_any_return( "fake_death", "player_downed", "spawned_player", "disconnect", "death", "end_game" );
         if(self maps/mp/zombies/_zm_laststand::player_is_in_laststand() || isdefined(self.afterlife) && self.afterlife)
@@ -330,7 +421,7 @@ progress_bar(left, center, right, progress_timer)
 {
     self endon("disconnect");
     self endon("end_task_progress");
-    level endon("game_ended");
+    level endon("end_game");
     if(!isdefined(self.task_list))
     {
         self.task_list = [];
@@ -353,6 +444,7 @@ progress_bar(left, center, right, progress_timer)
     }
     wait 2;
 	self.progress_bar = self createprimaryprogressbar();
+    
     if(center)
     {
         self.progress_bar.alignx = "center";
@@ -524,73 +616,82 @@ has_done_task(task)
     return 0;
 }
 
+wait_end()
+{
+    self endon("task_done");
+    level waittill("end_game");
+    self destroy();
+}
+
 timer(left, center, right)
 {
     self endon("end_task_progress");
     self endon("disconnect");
-    level endon("game_ended");
+	level endon("end_game");
     self endon("death");
-    timer = create_simple_hud( self );
+    long_task_timer = create_simple_hud( self );
+    long_task_timer thread wait_end();
     if(left)
     {
-        timer.alignx = "left";
-        timer.aligny = "top";
-        timer.horzalign = "user_left";
-        timer.vertalign = "user_top";
-        timer.x = 145;
+        long_task_timer.alignx = "left";
+        long_task_timer.aligny = "top";
+        long_task_timer.horzalign = "user_left";
+        long_task_timer.vertalign = "user_top";
+        long_task_timer.x = 145;
     }
     if(center)
     {
-        timer.alignx = "center";
-        timer.aligny = "top";
-        timer.horzalign = "user_center";
-        timer.vertalign = "user_top";
-        timer.x = 85;
+        long_task_timer.alignx = "center";
+        long_task_timer.aligny = "top";
+        long_task_timer.horzalign = "user_center";
+        long_task_timer.vertalign = "user_top";
+        long_task_timer.x = 85;
     }
     if(right)
     {
-        timer.alignx = "right";
-        timer.aligny = "top";
-        timer.horzalign = "user_right";
-        timer.vertalign = "user_top";
-        timer.x = -145;
+        long_task_timer.alignx = "right";
+        long_task_timer.aligny = "top";
+        long_task_timer.horzalign = "user_right";
+        long_task_timer.vertalign = "user_top";
+        long_task_timer.x = -145;
     }
-    timer.y = 21;
-    timer.hidewheninmenu = 1;
+    long_task_timer.y = 21;
+    long_task_timer.hidewheninmenu = 1;
     for(i=30;i>0;i--)
     {
         while(self maps/mp/zombies/_zm_laststand::player_is_in_laststand() || isdefined(self.afterlife) && self.afterlife)
         {
             wait .05;
         }
-        if(self.timer == 0)
+        if(self.task_timer == 0)
         {
             if(i == 20)
             {
-                timer.y += 21;
+                long_task_timer.y += 21;
             }
             if(i == 10)
             {
-                timer.y += 21;
+                long_task_timer.y += 21;
             }
         }
-        if(self.timer == 1)
+        if(self.task_timer == 1)
         {
             if(i == 10)
             {
-                timer.y += 21;
+                long_task_timer.y += 21;
             }
         }
-        timer setValue( i );
+        long_task_timer setValue( i );
         wait 1;
     }
-	timer destroy();
+	long_task_timer destroy();
+    long_task_timer notify("task_done");
 }
 
 start_task(task, left, center, right)
 {
     self endon("disconnect");
-    level endon("game_ended");
+	level endon("game_ended");
     task_hud = create_simple_hud( self );
     if(center)
     {
@@ -599,7 +700,7 @@ start_task(task, left, center, right)
         task_hud.horzalign = "user_center";
         task_hud.vertalign = "user_top";
         task_hud.x = 0;
-        if(task == "I Am So Tired" || task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
+        if(task == "Need Glasses?" || task == "I Am So Tired" || task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
         {
             self thread timer(0,1,0);
         }
@@ -611,7 +712,7 @@ start_task(task, left, center, right)
         task_hud.horzalign = "user_right";
         task_hud.vertalign = "user_top";
         task_hud.x = -5; 
-        if(task == "I Am So Tired" || task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
+        if(task == "Need Glasses?" || task == "I Am So Tired" || task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
         {
             self thread timer(0,0,1);
         }
@@ -623,7 +724,7 @@ start_task(task, left, center, right)
         task_hud.horzalign = "user_left";
         task_hud.vertalign = "user_top";
         task_hud.x = 5; 
-        if(task == "I Am So Tired" || task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
+        if(task == "Need Glasses?" || task == "I Am So Tired" || task == "Random Zombie Models" || task == "Origins Mud" || task == "Upgraded Mystery Box" || task == "Caffinated" || task == "Invincibility" || task == "Bonfire Sale" || task == "Annoying guns" || task == "Extra Crispy" || task == "Zombies Walk" || task == "Bottomless Clip" || task == "Out of Body Experience" || task == "Old Fashioned" || task == "Explosive Zombies" || task == "Random Fov" || task == "Super Jump" || task == "Super Zombies" || task == "Disable Powerups" || task == "Where's That Zombie" || task == "Raygun Always" || task == "Headshots Only" || task == "Flashing Zombies" || task == "Low Gravity" || task == "Random Guns" || task == "Left Gun")
         {
             self thread timer(1,0,0);
         }
@@ -648,473 +749,450 @@ start_task(task, left, center, right)
             self.task_list[x] destroy();
         }
     }
-    switch(task)
+    if(task == "Pack a punch weapon")
     {
-        case "Pack a punch weapon":
-            currgun = self getcurrentweapon();
-			if(!is_weapon_upgraded(currgun) && can_upgrade_weapon( currgun ))
-			{
-                self playsound("zmb_cha_ching");
-				self takeweapon(currgun);
-				gun = self maps/mp/zombies/_zm_weapons::get_upgrade_weapon( currgun, 0 );
-				self giveweapon(self maps/mp/zombies/_zm_weapons::get_upgrade_weapon( currgun, 0 ), 0, self get_pack_a_punch_weapon_options(gun));
-				self switchToWeapon(gun);
-			}
-            break;
-        case "Unpack a punch weapon":
-            if ( !self maps/mp/zombies/_zm_laststand::player_is_in_laststand() )
-            {
-                weap = self getcurrentweapon();
-                weapon = maps/mp/zombies/_zm_weapons::get_base_weapon_name( weap, 1 );
-                if ( isDefined( weapon ) && is_weapon_upgraded(weap))
-                {
-                    self playsound("zmb_cha_ching");
-                    self takeweapon( weap );
-                    self giveweapon( weapon, 0, self maps/mp/zombies/_zm_weapons::get_pack_a_punch_weapon_options( weapon ) );
-                    self givestartammo( weapon );
-                    self switchtoweapon( weapon );
-                }
-            }
-            break;
-        case "Turn Around":
-            self setplayerangles( self.angles + (0,180,0));
-            break;
-        case "disable crouch":
-            self allowcrouch( 0 );
-            break;
-        case "allow crouch":
-            self allowcrouch( 1 );
-            break;
-        case "who didnt pay the electric bill?":
-            self thread power_off();
-            break;
-        case "Full Ammo":
-            stockcount = self getweaponammostock( self GetCurrentWeapon() );
-			self setWeaponAmmostock( self GetCurrentWeapon(), stockcount + 999 );
-            break;
-        case "Origins Mud":
-            self thread mud();
-            break;
-        case "I'm Feeling Lucky":
-            power_up = [];
-            power_up[0] = "nuke";
-            power_up[1] = "insta_kill";
-            power_up[2] = "double_points";
-            power_up[3] = "full_ammo";
-            power_up[4] = "carpenter";
-			self specific_powerup_drop(power_up[ randomintrange( 0, 5 )], self.origin );
-            break;
-        case "Give Random Perk":
-            self thread give_random_perk();
-            break;
-        case "Upgraded Mystery Box":
-            self thread upgrade_box();
-            break;
-        case "Caffinated":
-            self thread caffinated();
-            break;
-        case "Invincibility":
-            self thread god();
-            break;
-        case "Bonfire Sale":
-            level thread start_bonfire_sale( self );
-            break;
-        case "Disable Powerups":
-            level thread powerups();
-            break;
-        case "Double Points":
-            self.score *= 2;
-            break;
-        case "Minus Points":
-            self.score -= 500 * level.round_number; 
-            if(self.score < 0)
-            {
-                self.score = 0;
-            }
-            break;
-        case "Annoying guns":
-            self notify("annoying_guns");
-            self thread annoying_guns_wait();
-            self thread annoying_guns(self);
-            break;
-        case "Extra Crispy":
-            self thread crispy();
-            break;
-        case "Zombies Walk":
-            level thread walk();
-            break;
-        case "Can We Get Perk Jingle?":
-            jingle = [];
-            jingle[0] = "mus_perks_speed_jingle";
-            jingle[1] = "mus_perks_juggernog_jingle";
-            self playsound( jingle[ randomintrange( 0, 2 )]);
-            break;
-        case "Extra Perk Slot":
-            self.player_perk_purchase_limit += 1;
-            break;
-        case "Remove Current Clip":
-            self setWeaponAmmoclip( self GetCurrentWeapon(), 0 );
-            break;
-        case "Bottomless Clip":
-            self thread clip();
-            break;
-        case "Crawlers!":
-            enemy = getAiArray(level.zombie_team);
-            foreach(zombie in enemy)
-            {
-                if(!zombie.forcedCrawler)
-                {
-                    zombie.forcedCrawler = true;
-                    zombie.force_gib=true;
-                    zombie.a.gib_ref="no_legs";
-                    zombie.has_legs=false;
-                    zombie allowedStances("crouch");
-                    zombie.deathanim = zombie maps/mp/animscripts/zm_utility::append_missing_legs_suffix("zm_death");
-                    zombie.run_combatanim=level.scr_anim["zombie"]["crawl1"];
-                    zombie thread maps/mp/animscripts/zm_run::needsupdate();
-                    zombie thread maps/mp/animscripts/zm_death::do_gib();
-                }
-            }
-            break;
-        case "Spawn Every Powerup":
-            self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "nuke", self.origin + (75,0,0) );
-            self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "insta_kill", self.origin + (-75,0,0) );
-            self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "full_ammo", self.origin + (0,75,0) );
-            self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "double_points", self.origin + (0,-75,0) );
-            self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "carpenter", self.origin + (50,50,0) );
-            self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "fire_sale", self.origin + (-50,-50,0) );
-            self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "free_perk", self.origin + (50,-50,0) );
-            self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "zombie_blood", self.origin + (-50,50,0) );
-            break;
-        case "Out of Body Experience":
-            self thread out_of_body();
-            break;
-        case "Disoriantated":
-            self thread Disoriantated();
-            break;
-        case "Old Fashioned":
-            self thread old_fashioned();
-            break;
-        case "Randomized Perk Locations":
-            level thread Randomize_Perk_locations();
-            break;
-        case "Break Barricades":
-            level thread maps/mp/zombies/_zm_blockers::open_all_zbarriers();
-            break;
-        case "Lose Perk":
-            if ( !self maps/mp/zombies/_zm_laststand::player_is_in_laststand() && self.sessionstate != "spectator" )
-            {
-                self maps/mp/zombies/_zm_perks::lose_random_perk();
-            }
-            break;
-        case "I Like This One More":
-            weapons = self getweaponslistprimaries();
-            if(self getcurrentweapon() == weapons[ 0 ])
-            {
-                self switchtoweapon( weapons[ 1 ] );
-            }
-            else
-            {
-                self switchtoweapon( weapons[ 0 ] );
-            }
-            break;
-        case "Jump Scared":
-            if(level.script == "zm_prison")
-            {
-                self playsoundtoplayer( "zmb_easteregg_face", self );
-                wth_elem = newclienthudelem( self );
-                wth_elem.horzalign = "fullscreen";
-                wth_elem.vertalign = "fullscreen";
-                wth_elem.sort = 1000;
-                wth_elem.foreground = 0;
-                wth_elem setshader( "zm_al_wth_zombie", 640, 480 );
-                wth_elem.hidewheninmenu = 1;
-                j_time = 0;
-                while ( j_time < 15 )
-                {
-                    j_time++;
-                    wait 0.05;
-                }
-                wth_elem destroy();
-            }
-            else
-            {  
-                self playsoundtoplayer( "zmb_easteregg_scarydog", self );
-                wth_elem = newclienthudelem( self );
-                wth_elem.horzalign = "fullscreen";
-                wth_elem.vertalign = "fullscreen";
-                wth_elem.sort = 1000;
-                wth_elem.foreground = 0;
-                wth_elem setshader( "zm_tm_wth_dog", 640, 480 );
-                wth_elem.hidewheninmenu = 1;
-                j_time = 0;
-                while ( j_time < 15 )
-                {
-                    j_time++;
-                    wait 0.05;
-                }
-                wth_elem destroy();
-            }
-            break;
-        case "I Thought You Had The Zombie?":
-            self thread change_round();
-            ai = getaiarray( level.zombie_team );
-            _a2225 = ai;
-            _k2225 = getFirstArrayKey( _a2225 );
-            while ( isDefined( _k2225 ) )
-            {
-                zombie = _a2225[ _k2225 ];
-                if ( isDefined( zombie ) )
-                {
-                    zombie dodamage( zombie.health + 6666, zombie.origin, zombie, zombie, "none", "MOD_SUICIDE" );
-                    wait 0.05;
-                }
-                _k2225 = getNextArrayKey( _a2225, _k2225 );
-            }
-            break;
-        case "Fake Nuke":
-            playfx(loadfx( "misc/fx_zombie_mini_nuke_hotness"), self.origin + ( 0, 0, 20) );
-            self thread nuke_flash();
-            break;
-        case "Lost It's Flavor":
-            self takeweapon(self getcurrentweapon());
-            break;
-        case "Randomize Door Prices":
-            zombie_doors = getentarray( "zombie_door", "targetname" );
-            for(i = 0; i < zombie_doors.size; i++)
-            {
-                if(zombie_doors[i].script_noteworthy != "electric_door" && zombie_doors[i].script_noteworthy != "local_electric_door" && zombie_doors[i].script_noteworthy != "afterlife_door" )
-                {
-                    zombie_doors[i].zombie_cost = (100 * randomIntRange(6, 51));
-                    zombie_doors[i] maps/mp/zombies/_zm_utility::set_hint_string( zombie_doors[i], "default_buy_door", zombie_doors[i].zombie_cost );
-                }
-            }
-            zombie_airlock = getentarray( "zombie_airlock_buy", "targetname" );
-            for(i = 0; i < zombie_doors.size; i++)
-            {
-                zombie_airlock[i].zombie_cost = (100 * randomIntRange(6, 51));
-                zombie_airlock[i] maps/mp/zombies/_zm_utility::set_hint_string( zombie_airlock[i], "default_buy_door", zombie_airlock[i].zombie_cost );
-            }
-            zombie_debris = getentarray( "zombie_debris", "targetname" );
-            for(i = 0; i < zombie_doors.size; i++)
-            {
-                zombie_debris[i].zombie_cost = (100 * randomIntRange(6, 51));
-                zombie_debris[i] maps/mp/zombies/_zm_utility::set_hint_string( zombie_debris[i], "default_buy_door", zombie_debris[i].zombie_cost );
-            }
-            break;
-        case "Half Points":
-            self.score = int(self.score / 2 );
-            break;
-        case "Gift Points":
-            self.score += 1000 * level.round_number; 
-            break;
-        case "Randomize Wallbuy Prices":
-            normal = getArrayKeys(level.zombie_weapons);
-            for(i = 0; i < normal.size; i++)
-            {
-                level.zombie_weapons[ normal[i] ].cost = (100 * randomIntRange(6, 31));
-                level.zombie_weapons[ normal[i] ].ammo_cost = (100 * randomIntRange(6, 31));
-            }
-            break;
-        case "Explosive Zombies":
-            self thread explosive_zombies();
-            break;
-        case "Spawn Clone":
-            self clonePlayer(1);
-            break;
-        case "Random Fov":
-            self thread FOV();
-            break;
-        case "Oops Did I Drop It?":
-            self dropitem(self getcurrentweapon());
-            break;
-        case "Lets Jump":
-            self thread Trampoline();
-            break;
-        case "Who's Singing?":
-            level.music_override = 1;
-            ent = spawn( "script_origin", self.origin );
-            ent playsound("mus_zmb_secret_song");
-            break;
-        case "Boss Time":
-            if(level.script == "zm_prison")
-            {
-                level notify( "spawn_brutus", 1 );
-            }
-            else
-            {
-                level.mechz_left_to_spawn++;
-                level notify( "spawn_mechz" );
-            }
-            break;
-        case "Super Jump":
-            self thread super_jump();
-            self thread super_jump_wait();
-            break;
-        case "Super Zombies":
-            self thread super_melee();
-            self thread super_melee_wait();
-            break;
-        case "Headshots Only":
-            self thread headshots();
-            break;
-        case "Where's That Zombie":
-            self thread zombie_sound_loop();
-            break;
-        case "Raygun Always":
-            self thread raygun_always();
-            break;
-        case "I Found Jugg":
-            jugg_machine = getentarray( "vending_jugg", "targetname" );
-            jugg_machine_trigger = getentarray( "vending_jugg", "target" );
-            jugg_machine[0].origin = self.origin;
-            jugg_machine_trigger[0].origin = jugg_machine[0].origin + (0, 0, 10);
-            break;
-        case "Need Glasses?":
-            self thread need_glasses();
-            break;
-        case "All MP Perks":
-            if(!self.has_mp_perks)
-            {
-                self setperk( "specialty_armorpiercing" );
-                self setperk( "specialty_bulletaccuracy" );
-                self setperk( "specialty_bulletdamage" );
-                self setperk( "specialty_bulletflinch" );
-                self setperk( "specialty_bulletpenetration" );
-                self setperk( "specialty_delayexplosive" );
-                self setperk( "specialty_detectexplosive" );
-                self setperk( "specialty_disarmexplosive" );
-                self setperk( "specialty_earnmoremomentum" );
-                self setperk( "specialty_explosivedamage" );
-                self setperk( "specialty_extraammo" );
-                self setperk( "specialty_fastads" );
-                self setperk( "specialty_fastequipmentuse" );
-                self setperk( "specialty_fastladderclimb" );
-                self setperk( "specialty_fastmantle" );
-                self setperk( "specialty_fastmeleerecovery" );
-                self setperk( "specialty_fasttoss" );
-                self setperk( "specialty_fastweaponswitch" );
-                self setperk( "specialty_fireproof" );
-                self setperk( "specialty_flashprotection" );
-                self setperk( "specialty_gpsjammer" );
-                self setperk( "specialty_healthregen" );
-                self setperk( "specialty_holdbreath" );
-                self setperk( "specialty_immunecounteruav" );
-                self setperk( "specialty_immunemms" );
-                self setperk( "specialty_immunenvthermal" );
-                self setperk( "specialty_immunerangefinder" );
-                self setperk( "specialty_killstreak" );
-                self setperk( "specialty_loudenemies" );
-                self setperk( "specialty_marksman" );
-                self setperk( "specialty_movefaster" );
-                self setperk( "specialty_noname" );
-                self setperk( "specialty_nottargetedbyairsupport" );
-                self setperk( "specialty_nokillstreakreticle" );
-                self setperk( "specialty_nottargettedbysentry" );
-                self setperk( "specialty_pin_back" );
-                self setperk( "specialty_pistoldeath" );
-                self setperk( "specialty_proximityprotection" );
-                self setperk( "specialty_quieter" );
-                self setperk( "specialty_reconnaissance" );
-                self setperk( "specialty_showenemyequipment" );
-                self setperk( "specialty_stunprotection" );
-                self setperk( "specialty_shellshock" );
-                self setperk( "specialty_sprintrecovery" );
-                self setperk( "specialty_showonradar" );
-                self setperk( "specialty_stalker" );
-                self setperk( "specialty_twogrenades" );
-                self setperk( "specialty_twoprimaries" );
-                self.has_mp_perks = 1;
-            }
-            else
-            {
-                self.has_mp_perks = 0;
-                self unsetperk( "specialty_armorpiercing" );
-                self unsetperk( "specialty_bulletaccuracy" );
-                self unsetperk( "specialty_bulletdamage" );
-                self unsetperk( "specialty_bulletflinch" );
-                self unsetperk( "specialty_bulletpenetration" );
-                self unsetperk( "specialty_delayexplosive" );
-                self unsetperk( "specialty_detectexplosive" );
-                self unsetperk( "specialty_disarmexplosive" );
-                self unsetperk( "specialty_earnmoremomentum" );
-                self unsetperk( "specialty_explosivedamage" );
-                self unsetperk( "specialty_extraammo" );
-                self unsetperk( "specialty_fastads" );
-                self unsetperk( "specialty_fastequipmentuse" );
-                self unsetperk( "specialty_fastladderclimb" );
-                self unsetperk( "specialty_fastmantle" );
-                self unsetperk( "specialty_fastmeleerecovery" );
-                self unsetperk( "specialty_fasttoss" );
-                self unsetperk( "specialty_fastweaponswitch" );
-                self unsetperk( "specialty_fireproof" );
-                self unsetperk( "specialty_flashprotection" );
-                self unsetperk( "specialty_gpsjammer" );
-                self unsetperk( "specialty_healthregen" );
-                self unsetperk( "specialty_holdbreath" );
-                self unsetperk( "specialty_immunecounteruav" );
-                self unsetperk( "specialty_immunemms" );
-                self unsetperk( "specialty_immunenvthermal" );
-                self unsetperk( "specialty_immunerangefinder" );
-                self unsetperk( "specialty_killstreak" );
-                self unsetperk( "specialty_loudenemies" );
-                self unsetperk( "specialty_marksman" );
-                self unsetperk( "specialty_movefaster" );
-                self unsetperk( "specialty_noname" );
-                self unsetperk( "specialty_nottargetedbyairsupport" );
-                self unsetperk( "specialty_nokillstreakreticle" );
-                self unsetperk( "specialty_nottargettedbysentry" );
-                self unsetperk( "specialty_pin_back" );
-                self unsetperk( "specialty_pistoldeath" );
-                self unsetperk( "specialty_proximityprotection" );
-                self unsetperk( "specialty_quieter" );
-                self unsetperk( "specialty_reconnaissance" );
-                self unsetperk( "specialty_showenemyequipment" );
-                self unsetperk( "specialty_stunprotection" );
-                self unsetperk( "specialty_shellshock" );
-                self unsetperk( "specialty_sprintrecovery" );
-                self unsetperk( "specialty_showonradar" );
-                self unsetperk( "specialty_stalker" );
-                self unsetperk( "specialty_twogrenades" );
-                self unsetperk( "specialty_twoprimaries" );
-            }
-            break;
-        case "Left Gun":
-            self thread left_gun();
-            break;
-        case "Flashing Zombies":
-            self thread flash_zombies();
-            break;
-        case "Low Gravity":
-            self thread gravity();
-            break;
-        case "Random Guns":
-            self thread gungame();
-            break;
-        case "Fake End Game":
-            self thread fake_end_game();
-            break;
-        case "Earthquake":
-            earthquake( 0.9, 15, ( 0, 0, 0 ), 100000 );
-            break;
-        case "Random Zombie Models":
-            self thread randomize_zombies_models();
-            break;
-        case "I Am So Tired":
-            self thread tired();
-            break;
-        default:
-            break;
+        currgun = self getcurrentweapon();
+        if(!is_weapon_upgraded(currgun) && can_upgrade_weapon( currgun ))
+        {
+            self playsound("zmb_cha_ching");
+            self takeweapon(currgun);
+            gun = self maps/mp/zombies/_zm_weapons::get_upgrade_weapon( currgun, 0 );
+            self giveweapon(self maps/mp/zombies/_zm_weapons::get_upgrade_weapon( currgun, 0 ), 0, self get_pack_a_punch_weapon_options(gun));
+            self switchToWeapon(gun);
+        }
     }
+    if(task == "Unpack a punch weapon")
+    {
+        if ( !self maps/mp/zombies/_zm_laststand::player_is_in_laststand() )
+        {
+            weap = self getcurrentweapon();
+            weapon = maps/mp/zombies/_zm_weapons::get_base_weapon_name( weap, 1 );
+            if ( isDefined( weapon ) && is_weapon_upgraded(weap))
+            {
+                self playsound("zmb_cha_ching");
+                self takeweapon( weap );
+                self giveweapon( weapon, 0, self maps/mp/zombies/_zm_weapons::get_pack_a_punch_weapon_options( weapon ) );
+                self givestartammo( weapon );
+                self switchtoweapon( weapon );
+            }
+        }
+    }
+    if(task == "Turn Around")
+        self setplayerangles( self.angles + (0,180,0));
+    if(task == "disable crouch")
+        self allowcrouch( 0 );
+    if(task == "allow crouch")
+        self allowcrouch( 1 );
+    if(task == "who didnt pay the electric bill?")
+        self thread power_off();
+    if(task == "Full Ammo")
+    {
+        stockcount = self getweaponammostock( self GetCurrentWeapon() );
+        self setWeaponAmmostock( self GetCurrentWeapon(), stockcount + 999 );
+    }
+    if(task == "Origins Mud")
+        self thread mud();
+    if(task == "I'm Feeling Lucky")
+    {
+        power_up = [];
+        power_up[0] = "nuke";
+        power_up[1] = "insta_kill";
+        power_up[2] = "double_points";
+        power_up[3] = "full_ammo";
+        power_up[4] = "carpenter";
+        self specific_powerup_drop(power_up[ randomintrange( 0, 5 )], self.origin );
+    }
+    if(task == "Give Random Perk")
+        self thread give_random_perk();
+    if(task == "Upgraded Mystery Box")
+        self thread upgrade_box();
+    if(task == "Caffinated")
+        self thread caffinated();
+    if(task == "Invincibility")
+        self thread god();
+    if(task == "Bonfire Sale")
+        level thread start_bonfire_sale( self );
+    if(task == "Disable Powerups")
+        level thread powerups();
+    if(task == "Double Points")
+        self.score *= 2;
+    if(task == "Minus Points")
+    {
+        self.score -= (500 * level.round_number); 
+        if(self.score < 0)
+        {
+            self.score = 0;
+        }
+    }
+    if(task == "Annoying guns")
+    {
+        self notify("annoying_guns");
+        self thread annoying_guns_wait();
+        self thread annoying_guns();
+    }
+    if(task == "Extra Crispy")
+        self thread crispy();
+    if(task == "Zombies Walk")
+        level thread walk();
+    if(task == "Can We Get Perk Jingle?")
+    {
+        jingle = [];
+        jingle[0] = "mus_perks_speed_jingle";
+        jingle[1] = "mus_perks_juggernog_jingle";
+        self playsound( jingle[ randomintrange( 0, 2 )]);
+    }
+    if(task == "Extra Perk Slot")
+        self.player_perk_purchase_limit += 1;
+    if(task == "Remove Current Clip")
+        self setWeaponAmmoclip( self GetCurrentWeapon(), 0 );
+    if(task == "Bottomless Clip")
+        self thread clip();
+    if(task == "Crawlers!")
+    {
+        enemy = getAiArray(level.zombie_team);
+        foreach(zombie in enemy)
+        {
+            if(!zombie.forcedCrawler)
+            {
+                zombie.forcedCrawler = true;
+                zombie.force_gib=true;
+                zombie.a.gib_ref="no_legs";
+                zombie.has_legs=false;
+                zombie allowedStances("crouch");
+                zombie.deathanim = zombie maps/mp/animscripts/zm_utility::append_missing_legs_suffix("zm_death");
+                zombie.run_combatanim=level.scr_anim["zombie"]["crawl1"];
+                zombie thread maps/mp/animscripts/zm_run::needsupdate();
+                zombie thread maps/mp/animscripts/zm_death::do_gib();
+            }
+        }
+    }
+    if(task == "Spawn Every Powerup")
+    {
+        self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "nuke", self.origin + (75,0,0) );
+        self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "insta_kill", self.origin + (-75,0,0) );
+        self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "full_ammo", self.origin + (0,75,0) );
+        self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "double_points", self.origin + (0,-75,0) );
+        self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "carpenter", self.origin + (50,50,0) );
+        self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "fire_sale", self.origin + (-50,-50,0) );
+        self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "free_perk", self.origin + (50,-50,0) );
+        self maps/mp/zombies/_zm_powerups::specific_powerup_drop( "zombie_blood", self.origin + (-50,50,0) );
+    }
+    if(task == "Out of Body Experience")
+        self thread out_of_body();
+    if(task == "Disoriantated")
+        self thread Disoriantated();
+    if(task == "Old Fashioned")
+        self thread old_fashioned();
+    if(task == "Randomized Perk Locations")
+        level thread Randomize_Perk_locations();
+    if(task == "Break Barricades")
+        level thread maps/mp/zombies/_zm_blockers::open_all_zbarriers();
+    if(task == "Lose Perk")
+    {
+        if ( !self maps/mp/zombies/_zm_laststand::player_is_in_laststand() && self.sessionstate != "spectator" )
+        {
+            self maps/mp/zombies/_zm_perks::lose_random_perk();
+        }
+    }
+    if(task == "I Like This One More")
+    {
+        weapons = self getweaponslistprimaries();
+        if(self getcurrentweapon() == weapons[ 0 ])
+        {
+            self switchtoweapon( weapons[ 1 ] );
+        }
+        else
+        {
+            self switchtoweapon( weapons[ 0 ] );
+        }
+    }
+    if(task == "Jump Scared")
+    {
+        if(level.script == "zm_prison")
+        {
+            self playsoundtoplayer( "zmb_easteregg_face", self );
+            wth_elem = newclienthudelem( self );
+            wth_elem.horzalign = "fullscreen";
+            wth_elem.vertalign = "fullscreen";
+            wth_elem.sort = 1000;
+            wth_elem.foreground = 0;
+            wth_elem setshader( "zm_al_wth_zombie", 640, 480 );
+            wth_elem.hidewheninmenu = 1;
+            j_time = 0;
+            while ( j_time < 15 )
+            {
+                j_time++;
+                wait 0.05;
+            }
+            wth_elem destroy();
+        }
+        else
+        {  
+            self playsoundtoplayer( "zmb_easteregg_scarydog", self );
+            wth_elem = newclienthudelem( self );
+            wth_elem.horzalign = "fullscreen";
+            wth_elem.vertalign = "fullscreen";
+            wth_elem.sort = 1000;
+            wth_elem.foreground = 0;
+            wth_elem setshader( "zm_tm_wth_dog", 640, 480 );
+            wth_elem.hidewheninmenu = 1;
+            j_time = 0;
+            while ( j_time < 15 )
+            {
+                j_time++;
+                wait 0.05;
+            }
+            wth_elem destroy();
+        }
+    }
+    if(task == "I Thought You Had The Zombie?")
+    {
+        level thread change_round();
+        ai = getaiarray( level.zombie_team );
+        _a2225 = ai;
+        _k2225 = getFirstArrayKey( _a2225 );
+        while ( isDefined( _k2225 ) )
+        {
+            zombie = _a2225[ _k2225 ];
+            if ( isDefined( zombie ) )
+            {
+                zombie dodamage( zombie.maxhealth + 666, zombie.origin, zombie, zombie, "none", "MOD_SUICIDE" );
+                wait 0.05;
+            }
+            _k2225 = getNextArrayKey( _a2225, _k2225 );
+        }
+    }
+    if(task == "Fake Nuke")
+    {
+        playfx(loadfx( "misc/fx_zombie_mini_nuke_hotness"), self.origin + ( 0, 0, 20) );
+        self thread nuke_flash();
+    }
+    if(task == "Lost It's Flavor")
+        self takeweapon(self getcurrentweapon());
+    if(task == "Randomize Door Prices")
+    {
+        zombie_doors = getentarray( "zombie_door", "targetname" );
+        for(i = 0; i < zombie_doors.size; i++)
+        {
+            if(zombie_doors[i].script_noteworthy != "electric_door" && zombie_doors[i].script_noteworthy != "local_electric_door" && zombie_doors[i].script_noteworthy != "afterlife_door" )
+            {
+                zombie_doors[i].zombie_cost = (100 * randomIntRange(1, 41));
+                zombie_doors[i] maps/mp/zombies/_zm_utility::set_hint_string( zombie_doors[i], "default_buy_door", zombie_doors[i].zombie_cost );
+            }
+        }
+        zombie_airlock = getentarray( "zombie_airlock_buy", "targetname" );
+        for(i = 0; i < zombie_doors.size; i++)
+        {
+            zombie_airlock[i].zombie_cost = (100 * randomIntRange(6, 51));
+            zombie_airlock[i] maps/mp/zombies/_zm_utility::set_hint_string( zombie_airlock[i], "default_buy_door", zombie_airlock[i].zombie_cost );
+        }
+        zombie_debris = getentarray( "zombie_debris", "targetname" );
+        for(i = 0; i < zombie_doors.size; i++)
+        {
+            zombie_debris[i].zombie_cost = (100 * randomIntRange(6, 51));
+            zombie_debris[i] maps/mp/zombies/_zm_utility::set_hint_string( zombie_debris[i], "default_buy_door", zombie_debris[i].zombie_cost );
+        }
+    }
+    if(task == "Half Points")
+        self.score = int(self.score / 2 );
+    if(task == "Gift Points")
+        self.score += (1000 * level.round_number); 
+    if(task == "Randomize Wallbuy Prices")
+    {
+        normal = getArrayKeys(level.zombie_weapons);
+        for(i = 0; i < normal.size; i++)
+        {
+            level.zombie_weapons[ normal[i] ].cost = (100 * randomIntRange(6, 31));
+            level.zombie_weapons[ normal[i] ].ammo_cost = (100 * randomIntRange(6, 31));
+        }
+    }
+    if(task == "Explosive Zombies")
+        self thread explosive_zombies();
+    if(task == "Spawn Clone")
+        self clonePlayer(1);
+    if(task == "Random Fov")
+        self thread set_fov();
+    if(task == "Oops Did I Drop It?")
+        self dropitem(self getcurrentweapon());
+    if(task == "Lets Jump")
+        self thread Trampoline();
+    if(task == "Who's Singing?")
+    {
+        level.music_override = 1;
+        ent = spawn( "script_origin", self.origin );
+        ent playsound("mus_zmb_secret_song");
+    }
+    if(task == "Boss Time")
+    {
+        if(level.script == "zm_prison")
+        {
+            level notify( "spawn_brutus", 1 );
+        }
+        else
+        {
+            level.mechz_left_to_spawn++;
+            level notify( "spawn_mechz" );
+        }
+    }
+    if(task == "Super Jump")
+    {
+        self thread super_jump();
+        self thread super_jump_wait();
+    }
+    if(task == "Super Zombies")
+    {
+        self thread super_melee();
+        self thread super_melee_wait();
+    }
+    if(task == "Headshots Only")
+        self thread headshots();
+    if(task == "Where's That Zombie")
+        self thread zombie_sound_loop();
+    if(task == "Raygun Always")
+        self thread raygun_always();
+    if(task == "I Found Jugg")
+    {
+        jugg_machine = getentarray( "vending_jugg", "targetname" );
+        jugg_machine_trigger = getentarray( "vending_jugg", "target" );
+        jugg_machine[0].origin = self.origin;
+        jugg_machine_trigger[0].origin = jugg_machine[0].origin + (0, 0, 10);
+    }
+    if(task == "Need Glasses?")
+        self thread need_glasses();
+    if(task == "All MP Perks")
+    {
+        if(!self.has_mp_perks)
+        {
+            self setperk( "specialty_armorpiercing" );
+            self setperk( "specialty_bulletaccuracy" );
+            self setperk( "specialty_bulletdamage" );
+            self setperk( "specialty_bulletflinch" );
+            self setperk( "specialty_bulletpenetration" );
+            self setperk( "specialty_delayexplosive" );
+            self setperk( "specialty_detectexplosive" );
+            self setperk( "specialty_disarmexplosive" );
+            self setperk( "specialty_earnmoremomentum" );
+            self setperk( "specialty_explosivedamage" );
+            self setperk( "specialty_extraammo" );
+            self setperk( "specialty_fastads" );
+            self setperk( "specialty_fastequipmentuse" );
+            self setperk( "specialty_fastladderclimb" );
+            self setperk( "specialty_fastmantle" );
+            self setperk( "specialty_fastmeleerecovery" );
+            self setperk( "specialty_fasttoss" );
+            self setperk( "specialty_fastweaponswitch" );
+            self setperk( "specialty_fireproof" );
+            self setperk( "specialty_flashprotection" );
+            self setperk( "specialty_gpsjammer" );
+            self setperk( "specialty_healthregen" );
+            self setperk( "specialty_holdbreath" );
+            self setperk( "specialty_immunecounteruav" );
+            self setperk( "specialty_immunemms" );
+            self setperk( "specialty_immunenvthermal" );
+            self setperk( "specialty_immunerangefinder" );
+            self setperk( "specialty_killstreak" );
+            self setperk( "specialty_loudenemies" );
+            self setperk( "specialty_marksman" );
+            self setperk( "specialty_movefaster" );
+            self setperk( "specialty_noname" );
+            self setperk( "specialty_nottargetedbyairsupport" );
+            self setperk( "specialty_nokillstreakreticle" );
+            self setperk( "specialty_nottargettedbysentry" );
+            self setperk( "specialty_pin_back" );
+            self setperk( "specialty_pistoldeath" );
+            self setperk( "specialty_proximityprotection" );
+            self setperk( "specialty_quieter" );
+            self setperk( "specialty_reconnaissance" );
+            self setperk( "specialty_showenemyequipment" );
+            self setperk( "specialty_stunprotection" );
+            self setperk( "specialty_shellshock" );
+            self setperk( "specialty_sprintrecovery" );
+            self setperk( "specialty_showonradar" );
+            self setperk( "specialty_stalker" );
+            self setperk( "specialty_twogrenades" );
+            self setperk( "specialty_twoprimaries" );
+            self.has_mp_perks = 1;
+        }
+        else
+        {
+            self.has_mp_perks = 0;
+            self unsetperk( "specialty_armorpiercing" );
+            self unsetperk( "specialty_bulletaccuracy" );
+            self unsetperk( "specialty_bulletdamage" );
+            self unsetperk( "specialty_bulletflinch" );
+            self unsetperk( "specialty_bulletpenetration" );
+            self unsetperk( "specialty_delayexplosive" );
+            self unsetperk( "specialty_detectexplosive" );
+            self unsetperk( "specialty_disarmexplosive" );
+            self unsetperk( "specialty_earnmoremomentum" );
+            self unsetperk( "specialty_explosivedamage" );
+            self unsetperk( "specialty_extraammo" );
+            self unsetperk( "specialty_fastads" );
+            self unsetperk( "specialty_fastequipmentuse" );
+            self unsetperk( "specialty_fastladderclimb" );
+            self unsetperk( "specialty_fastmantle" );
+            self unsetperk( "specialty_fastmeleerecovery" );
+            self unsetperk( "specialty_fasttoss" );
+            self unsetperk( "specialty_fastweaponswitch" );
+            self unsetperk( "specialty_fireproof" );
+            self unsetperk( "specialty_flashprotection" );
+            self unsetperk( "specialty_gpsjammer" );
+            self unsetperk( "specialty_healthregen" );
+            self unsetperk( "specialty_holdbreath" );
+            self unsetperk( "specialty_immunecounteruav" );
+            self unsetperk( "specialty_immunemms" );
+            self unsetperk( "specialty_immunenvthermal" );
+            self unsetperk( "specialty_immunerangefinder" );
+            self unsetperk( "specialty_killstreak" );
+            self unsetperk( "specialty_loudenemies" );
+            self unsetperk( "specialty_marksman" );
+            self unsetperk( "specialty_movefaster" );
+            self unsetperk( "specialty_noname" );
+            self unsetperk( "specialty_nottargetedbyairsupport" );
+            self unsetperk( "specialty_nokillstreakreticle" );
+            self unsetperk( "specialty_nottargettedbysentry" );
+            self unsetperk( "specialty_pin_back" );
+            self unsetperk( "specialty_pistoldeath" );
+            self unsetperk( "specialty_proximityprotection" );
+            self unsetperk( "specialty_quieter" );
+            self unsetperk( "specialty_reconnaissance" );
+            self unsetperk( "specialty_showenemyequipment" );
+            self unsetperk( "specialty_stunprotection" );
+            self unsetperk( "specialty_shellshock" );
+            self unsetperk( "specialty_sprintrecovery" );
+            self unsetperk( "specialty_showonradar" );
+            self unsetperk( "specialty_stalker" );
+            self unsetperk( "specialty_twogrenades" );
+            self unsetperk( "specialty_twoprimaries" );
+        }
+    }
+    if(task == "Left Gun")
+        self thread left_gun();
+    if(task == "Flashing Zombies")
+        self thread flash_zombies();
+    if(task == "Low Gravity")
+        self thread gravity();
+    if(task == "Random Guns")
+        self thread gungame();
+    if(task == "Fake End Game")
+        self thread fake_end_game();
+    if(task == "Earthquake")
+        earthquake( 0.9, 15, self.origin, 100000 );
+    if(task == "Random Zombie Models")
+        self thread randomize_zombies_models();
+    if(task == "I Am So Tired")
+        self thread tired();
+    if(task == "Make Over")
+        self thread makeover();
 }
 
 available_tasks()
 {
 	available_tasks = [];
+    
     if(level.round_number > 5)
     {
         available_tasks[available_tasks.size] = "Minus Points";
-        available_tasks[available_tasks.size] = "enable crouch";
     	available_tasks[available_tasks.size] = "Lose Perk";
         available_tasks[available_tasks.size] = "Half Points";
     }
@@ -1125,9 +1203,15 @@ available_tasks()
     	available_tasks[available_tasks.size] = "Lost It's Flavor";
 	    available_tasks[available_tasks.size] = "Unpack a punch weapon";
     }
-    if(self allowcrouch( 1 ))
+    if(!self.crouch_disabled)
     {
         available_tasks[available_tasks.size] = "disable crouch";
+        self.crouch_disabled = 1;
+    }
+    else
+    {
+        self.crouch_disabled = 0;
+        available_tasks[available_tasks.size] = "allow crouch";
     }
     if ( flag( "power_on" ) )
     {
@@ -1145,16 +1229,12 @@ available_tasks()
     if(level.script == "zm_transit")
     {
 	    available_tasks[available_tasks.size] = "Extra Crispy";
-        if( getdvar ( "g_gametype")  == "zclassic" )
-        {
-            available_tasks[available_tasks.size] = "Need Glasses?";
-        }
     }
     if(level.script == "zm_transit" && getdvar ( "g_gametype")  == "zclassic")
     {
     	available_tasks[available_tasks.size] = "Disoriantated";
     }
-    if((getdvar( "mapname" ) == "zm_transit" && getdvar ( "g_gametype")  == "zclassic") || level.script == "zm_tomb" /*|| level.script == "zm_prison"*/ || level.script == "zm_buried")
+    if((getdvar( "mapname" ) == "zm_transit" && getdvar ( "g_gametype")  == "zclassic") || level.script == "zm_tomb" || level.script == "zm_buried") // *|| level.script == "zm_prison"
     {
         available_tasks[available_tasks.size] = "Randomized Perk Locations";
     }
@@ -1166,6 +1246,7 @@ available_tasks()
         available_tasks[available_tasks.size] = "Flashing Zombies";
         available_tasks[available_tasks.size] = "Low Gravity";
     }
+    available_tasks[available_tasks.size] = "Need Glasses?";
 	available_tasks[available_tasks.size] = "Pack a punch weapon";
 	available_tasks[available_tasks.size] = "Turn Around";
 	available_tasks[available_tasks.size] = "Full Ammo";
@@ -1185,7 +1266,7 @@ available_tasks()
 	available_tasks[available_tasks.size] = "Bottomless Clip";
     available_tasks[available_tasks.size] = "Crawlers!";
 	available_tasks[available_tasks.size] = "Spawn Every Powerup";
-	available_tasks[available_tasks.size] = "Out of Body Experience";
+	//available_tasks[available_tasks.size] = "Out of Body Experience";
 	available_tasks[available_tasks.size] = "Old Fashioned";
     available_tasks[available_tasks.size] = "Break Barricades";
 	available_tasks[available_tasks.size] = "I Like This One More";
@@ -1208,6 +1289,7 @@ available_tasks()
     available_tasks[available_tasks.size] = "Earthquake";
     available_tasks[available_tasks.size] = "Random Zombie Models";
     available_tasks[available_tasks.size] = "I Am So Tired";
+    available_tasks[available_tasks.size] = "Make Over";
 	return available_tasks;
 }
 
@@ -1281,6 +1363,8 @@ give_random_perk()
 
 upgrade_box()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
     self.upgraded_box = 1;
     for(i=0;i<60;i++)
@@ -1297,7 +1381,7 @@ upgrade_box()
 CheckForCurrentBox()
 {
 	flag_wait( "initial_blackscreen_passed" );
-    if( getdvar( "mapname" ) == "zm_nuked" )
+    if( getdvar( "mapname" ) == "zm_nuked" || getdvar( "mapname" ) == "zm_tomb" )
     {
         wait 10;
     }
@@ -1330,6 +1414,7 @@ reset_box()
 
 custom_treasure_chest_think()
 {
+	level endon("end_game");
 	self endon( "kill_chest_think" );
 	user = undefined;
 	user_cost = undefined;
@@ -1570,6 +1655,8 @@ custom_watch_for_lock()
 caffinated()
 {
     self endon("end_task_progress");
+    self endon("disconnect");
+	level endon("end_game");
     self setmovespeedscale(3);
     for(i=0;i<60;i++)
     {
@@ -1585,6 +1672,8 @@ caffinated()
 Mud()
 {
     self endon("end_task_progress");
+    self endon("disconnect");
+	level endon("end_game");
     self setmovespeedscale(0.5);
     for(i=0;i<60;i++)
     {
@@ -1599,6 +1688,8 @@ Mud()
 
 god()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
     self enableInvulnerability();
     god.enabled = 1;
@@ -1622,6 +1713,8 @@ god()
 
 powerups()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
     if( flag( "zombie_drop_powerups" ) )
     {
@@ -1638,8 +1731,10 @@ powerups()
     }
 }
 
-annoying_guns(functionowner)
+annoying_guns()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
     self endon("annoying_guns");
     weapon = self getcurrentweapon();
@@ -1656,6 +1751,8 @@ annoying_guns(functionowner)
 
 annoying_guns_wait()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
     for(i=0;i<60;i++)
     {
@@ -1670,6 +1767,8 @@ annoying_guns_wait()
 
 crispy()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
     for(i=0;i<30;i++)
     {
@@ -1678,13 +1777,19 @@ crispy()
             wait .05;
         }
         maps\mp\_visionset_mgr::vsmgr_activate("overlay", "zm_transit_burn", self, 1, 1);
-        self thread player_burning_audio();
+
+        if(!buring)
+            self thread player_burning_audio();
+
+        burning = 1;
         wait 1;
     }
+    self notify("stop_flame_sounds");
 }
 
 player_burning_audio()
 {
+    level endon("end_game");
 	fire_ent = spawn( "script_model", self.origin );
 	wait_network_frame();
 	fire_ent linkto( self );
@@ -1695,6 +1800,8 @@ player_burning_audio()
 
 walk()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
     for(i=0;i<30;i++)
     {
@@ -1716,6 +1823,8 @@ walk()
 
 clip()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
     for(i=0;i<600;i++)
     {
@@ -1730,6 +1839,8 @@ clip()
 
 out_of_body()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
     self set_third_person( 1 );
     for(i=0;i<60;i++)
@@ -1741,7 +1852,7 @@ out_of_body()
         wait .5;
     }
     self set_third_person( 0 );
-    wait .5;
+    wait .1;
     self resetfov();
 }
 
@@ -1751,30 +1862,24 @@ Disoriantated()
     {
         self.last_location = (0,0,0);
     }
-    locations = [];
-	if( getdvar( "mapname" ) == "zm_transit") 
+    locations = array((-6852.98,4944.63,-53.875), (5218.29,6870.22,-20.8699), (763.336,-482.006,-61.875), (10958.1,7579.58,-592.101), (-5306.84,-7328.29,-56.5403));
+    self.next_location = array_randomize(locations);
+
+	if( self.next_location[0] == self.last_location && distance(self.origin, self.next_location[0]) < 1500 )
 	{
-		locations[0] = (-6852.98,4944.63,-53.875); //spawn
-		locations[1] = (5218.29,6870.22,-20.8699); //cabin in the woods
-		locations[2] = (763.336,-482.006,-61.875); //town
-		locations[3] = (10958.1,7579.58,-592.101); //power
-		locations[4] = (-5306.84,-7328.29,-56.5403); //diner
-	}
-	self.next_location = locations[RandomIntRange( 0,5 )];
-	if( self.next_location == self.last_location && distance(self.origin, self.next_location) < 1000 )
-	{
-		return Disoriantated();
+		self thread Disoriantated();
 	}
 	else
 	{
-		self.last_location = self.next_location;
-		self setorigin(self.next_location);
-		return;
+		self.last_location = self.next_location[0];
+		self setorigin(self.next_location[0]);
 	}
 }
 
 old_fashioned()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
     self useServerVisionSet(true);
 	self setVisionSetforPlayer("zombie_last_stand", 0);
@@ -1798,7 +1903,8 @@ Randomize_Perk_locations()
     x = randomintrange(0,5);
     if(x == level.last_perk_locations)
     {
-        return Randomize_Perk_locations();
+        thread Randomize_Perk_locations();
+        return 0;
     }
     perk_locations = [];
     if(getdvar("mapname") == "zm_transit")
@@ -2430,6 +2536,8 @@ nuke_flash( team )
 
 explosive_zombies()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
     for(i=0;i<60;i++)
     {
@@ -2441,23 +2549,25 @@ explosive_zombies()
         {
             if(distance(zombie.origin, self.origin) < 50)
             {
-                zombie dodamage( zombie.maxhealth, (0,0,0));
-                playfx(loadfx("explosions/fx_default_explosion"), zombie.origin, anglestoforward( ( 0, 45, 55 ) ) );
+                zombie radiusdamage(zombie.origin, 70, (self.maxhealth / 2), (self.maxhealth / 3));
+                playfx(loadfx("explosions/fx_default_explosion"), zombie.origin );
             }
             if(zombie.health <= 0)
             {
-                playfx(loadfx("explosions/fx_default_explosion"), zombie.origin, anglestoforward( ( 0, 45, 55 ) ) );
-                zombie radiusdamage(zombie.origin, 100, zombie.maxhealth, zombie.health);
+                playfx(loadfx("explosions/fx_default_explosion"), zombie.origin );
+                zombie radiusdamage(zombie.origin, 100, (self.maxhealth / 2), (self.maxhealth / 3));
             }
         }
         wait .5;
     }
 }
 
-FOV()
+set_fov()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
-    self setclientfov((10 * randomIntRange(3, 12))); 
+    self setclientfov(randomint(150)); 
     for(i=0;i<60;i++)
     {
         while(self maps/mp/zombies/_zm_laststand::player_is_in_laststand() || isdefined(self.afterlife) && self.afterlife)
@@ -2471,6 +2581,8 @@ FOV()
 
 Trampoline()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
 	atf =  AnglesToForward(self getPlayerAngles());
     while(self maps/mp/zombies/_zm_laststand::player_is_in_laststand() || isdefined(self.afterlife) && self.afterlife)
@@ -2493,6 +2605,8 @@ Trampoline()
 
 super_jump()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
     self.jump_active = 1;
     while(self.jump_active)
@@ -2514,6 +2628,8 @@ super_jump()
 
 super_jump_wait()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("end_task_progress");
     for(i=0;i<600;i++)
     {
@@ -2535,7 +2651,7 @@ super_melee()
 	while(self.super_melee_on)
 	{
 		self waittill( "damage", amount, attacker, dir, point, mod );
-		if( isDefined(attacker) && attacker.is_zombie )
+		if( isDefined(attacker.is_zombie) && attacker.is_zombie )
 		{
 			self setorigin( self.origin );
 			self SetVelocity( ((AnglesToForward(VectorToAngles(self Getorigin() - attacker GetOrigin())) + (0,0,5)) * (1337,1337,350)) );
@@ -2546,6 +2662,8 @@ super_melee()
 
 super_melee_wait()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("death");
     self endon("end_task_progress");
 	for(i=0;i<60;i++)
@@ -2581,6 +2699,8 @@ change_round()
 
 zombie_sound_loop()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("death");
     self endon("end_task_progress");
     alias = level.zmb_vox[ "prefix" ] + level.zmb_vox[ "zombie" ][ "crawler" ];
@@ -2593,6 +2713,8 @@ zombie_sound_loop()
 
 headshots()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("death");
     self endon("end_task_progress");
     level.headshots_only = 1;
@@ -2609,6 +2731,8 @@ headshots()
 
 raygun_always()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("death");
     self endon("end_task_progress");
     foreach( weapon in level.zombie_weapons)
@@ -2636,21 +2760,26 @@ raygun_always()
 
 need_glasses()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("death");
     self endon("end_task_progress");
     for(i=0;i<60;i++)
 	{
+        self setblur( 4, 1 );
         while(self maps/mp/zombies/_zm_laststand::player_is_in_laststand() || isdefined(self.afterlife) && self.afterlife)
         {
             wait .05;
         }
-		maps/mp/_visionset_mgr::vsmgr_activate( "overlay", "zm_ai_screecher_blur", self, 0.5 );
 		wait .5;
 	}
+    self setblur( 0, 0.1 );
 }
 
 left_gun()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("death");
     self endon("end_task_progress");
     setdvar( "cg_gun_y", "7" );
@@ -2667,6 +2796,8 @@ left_gun()
 
 flash_zombies()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("death");
     self endon("end_task_progress");
     for(i=0;i<60;i++)
@@ -2694,6 +2825,8 @@ flash_zombies()
 
 flash()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("death");
     self endon("stop_flash");
     self endon("end_task_progress");
@@ -2709,6 +2842,8 @@ flash()
 
 gravity()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("death");
     self endon("end_task_progress");
     setdvar( "bg_gravity", "100" );
@@ -2725,6 +2860,8 @@ gravity()
 
 gungame()
 {
+    self endon("disconnect");
+	level endon("end_game");
 	self endon( "death" );
 	self endon( "disconnect" );
 	keys = getarraykeys( level.zombie_weapons );
@@ -2760,18 +2897,6 @@ gungame()
             i++;
         }
     }
-}
-
-obj_to_space( obj )
-{
-	firework = spawn( "script_model", self.origin + ( 0, 0, 53 ) );
-	firework setmodel( obj );
-	firework.angles = ( -90, 90, 90 );
-	self iprintln( "^1Shoot To Launch Object!" );
-	self waittill( "weapon_fired" );
-	firework moveto( firework.origin + ( 0, 0, 20000 ), 15 );
-	wait 10;
-	firework delete();
 }
 
 fake_end_game()
@@ -2847,6 +2972,8 @@ custom_change_zombie_music( state )
 
 randomize_zombies_models()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("death");
     self endon("end_task_progress");
     for(i=0;i<60;i++)
@@ -2874,63 +3001,44 @@ randomize_zombies_models()
 
 randomize_models()
 {
+    self endon("disconnect");
+	level endon("end_game");
     self endon("death");
     self endon("stop_model");
     self endon("end_task_progress");
-    models = [];
     if(getdvar("mapname") == "zm_transit" && getdvar ( "g_gametype")  == "zclassic" )
     {
-        models[0] = "c_zom_avagadro_fb";
-        models[1] = "c_zom_zombie1_body01";
-        models[2] = "c_zom_zombie1_body02";
-        models[3] = "c_zom_screecher_fb";
+        models = array("c_zom_avagadro_fb", "c_zom_zombie1_body01", "c_zom_zombie1_body02", "c_zom_screecher_fb");
     }
     if(getdvar("mapname") == "zm_transit" && getdvar ( "g_gametype")  == "zstandard" )
     {
-        models[0] = "c_zom_zombie1_body01";
-        models[1] = "c_zom_player_cdc_fb";
-        models[2] = "c_zom_zombie3_body05";
-        models[3] = "zombie_teddybear";
+        models = array("c_zom_zombie1_body01", "c_zom_player_cdc_fb", "c_zom_zombie3_body05", "c_zom_player_cia_fb");
     }
     if(getdvar("mapname") == "zm_nuked")
     {
-        models[0] = "c_zom_dlc0_zom_haz_body1";
-        models[1] = "c_zom_dlc0_zom_haz_body2";
-        models[2] = "c_zom_player_cia_fb";
-        models[3] = "c_zom_player_cdc_fb";
+        models = array("c_zom_dlc0_zom_haz_body1", "c_zom_dlc0_zom_haz_body2", "c_zom_player_cia_fb", "c_zom_player_cdc_fb");
     }
     if(getdvar("mapname") == "zm_highrise")
     {
-        models[0] = "c_zom_leaper_body";
-        models[1] = "c_zom_zombie_civ_shorts_body";
-        models[2] = "zombie_teddybear";
-        models[3] = "c_zom_zombie_scientist_body";
+        models = array("c_zom_leaper_body", "c_zom_zombie_civ_shorts_body", "c_zom_zombie_civ_shorts_body2", "c_zom_zombie_scientist_body");
     }
     if(getdvar("mapname") == "zm_prison")
     {
-        models[0] = "c_zom_cellbreaker_fb";
-        models[1] = "c_zom_guard_body";
-        models[2] = "c_zom_inmate_body1";
-        models[3] = "c_zom_inmate_body2";
+        models = array("c_zom_cellbreaker_fb", "c_zom_guard_body", "c_zom_inmate_body1", "c_zom_inmate_body2");
     }
     if(getdvar("mapname") == "zm_buried")
     {
-        models[0] = "c_zom_buried_sloth_fb";
-        models[1] = "c_zom_zombie_buried_sgirl_body1";
-        models[2] = "c_zom_zombie_buried_sgirl_body2";
-        models[3] = "zombie_teddybear";
+        models = array("c_zom_buried_sloth_fb", "c_zom_zombie_buried_sgirl_body1", "c_zom_zombie_buried_sgirl_body2", "c_zom_zombie_buried_miner_hats1");
     }
     if(getdvar("mapname") == "zm_tomb")
     {
-        models[0] = "c_zom_mech_body";
-        models[1] = "c_zom_tomb_german_body2";
-        models[2] = "c_zom_tomb_richtofen_fb";
-        models[3] = "c_zom_tomb_nikolai_fb";
+        models = array("c_zom_mech_body", "c_zom_tomb_german_body2", "c_zom_mech_body", "c_zom_tomb_german_body2");
     }
     for(;;)
     {
-        self setmodel( models[randomintrange(0,4)]);
-        if(getdvar("mapname") == "zm_transit" && models == "c_zom_avagadro_fb")
+        model = array_randomize(models);
+        self setmodel( model );
+        if(getdvar("mapname") == "zm_transit" && model == "c_zom_avagadro_fb")
         {
             self detachAll();
         }
@@ -3000,7 +3108,7 @@ tired()
 	wait 3.2;
 	fadetoblack destroy();
     wait 2;
-    	fadetoblack = newclienthudelem( self );
+    fadetoblack = newclienthudelem( self );
 	fadetoblack.x = 0;
 	fadetoblack.y = 0;
 	fadetoblack.horzalign = "fullscreen";
@@ -3059,4 +3167,19 @@ tired()
 	fadetoblack.alpha = 0;
 	wait 3.2;
 	fadetoblack destroy();
+}
+
+makeover()
+{
+    if(getdvar("mapname") == "zm_prison")
+        camo = 40;
+    else if(getdvar("mapname") == "zm_tomb")
+        camo = 45;
+    else
+        camo = 39;
+
+    gun = self getCurrentWeapon();
+    self takeweapon(gun);
+    self giveweapon( gun, 0, self calcweaponoptions( camo, 0, 0, 0));
+    self switchtoweapon( gun );
 }
