@@ -1,6 +1,6 @@
 # T6 Zombies chaos mode
 
-![kuva](https://user-images.githubusercontent.com/77815199/167412153-0b2a122a-3a61-4c08-9691-dbfb77ba78bc.png)
+![kuva](https://github.com/whydoesanyonecare/Black-ops-2-T6-zombies-chaos-mod/assets/77815199/8b8df007-7ad5-4275-a8e2-dec7ea3ed216)
 
 Random effect every 10 - 60sec. Player can choose time.
 
