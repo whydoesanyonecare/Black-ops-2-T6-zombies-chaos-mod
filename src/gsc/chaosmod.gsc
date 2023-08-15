@@ -1152,7 +1152,7 @@ start_task(task, left, center, right)
 available_tasks()
 {
 	available_tasks = [];
-    /*
+    
     if(level.round_number > 5)
     {
         available_tasks[available_tasks.size] = &"Minus Points";
@@ -1262,7 +1262,7 @@ available_tasks()
     }    
     else if(getdvar( "mapname" ) != "zm_tomb")
         available_tasks[available_tasks.size] = &"I Found PAP";
-    */
+    
     if(getdvar( "mapname" ) != "zm_tomb" && getdvar( "mapname" ) != "zm_prison")
         available_tasks[available_tasks.size] = &"Eww! SMR";
 
