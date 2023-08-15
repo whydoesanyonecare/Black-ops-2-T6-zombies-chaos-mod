@@ -1257,6 +1257,8 @@ available_tasks()
         
     if(getdvar( "mapname" ) == "zm_transit" && getdvar ( "g_gametype")  == "zclassic")
     {
+        available_tasks[available_tasks.size] = &"Disoriantated";
+        
         if(is_true(level.buildables_built[ "pap" ]))
             available_tasks[available_tasks.size] = &"I Found PAP";
     }    
@@ -1269,6 +1271,7 @@ available_tasks()
     available_tasks[available_tasks.size] = &"Take this ray gun!";
     available_tasks[available_tasks.size] = &"Disable aim!";
     available_tasks[available_tasks.size] = &"Problems to run?";
+    
 
 	return available_tasks;
 }
