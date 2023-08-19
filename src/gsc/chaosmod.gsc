@@ -3448,6 +3448,7 @@ raygun_bullets()
 	level endon("end_game");
     self endon("end_task_progress");
     self notify("end_raygun_bullet");
+    self endon("end_raygun_bullet");
     self thread waittill_done();
 	for(;;)
 	{
