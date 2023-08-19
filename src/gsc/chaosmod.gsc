@@ -1147,6 +1147,12 @@ start_task(task, left, center, right)
         self thread disable_aim();
     if(task == &"Problems to run?")
         self thread sprinting_issues();
+    if(task == &"Open random door")
+        thread open_random_door();
+    if(task == &"Ray gun bullets")
+        thread raygun_bullets();
+    if(task == &"Randomize box price")
+        thread random_box_price();
 }
 
 available_tasks()
@@ -1258,7 +1264,7 @@ available_tasks()
     if(getdvar( "mapname" ) == "zm_transit" && getdvar ( "g_gametype")  == "zclassic")
     {
         available_tasks[available_tasks.size] = &"Disoriantated";
-        
+
         if(is_true(level.buildables_built[ "pap" ]))
             available_tasks[available_tasks.size] = &"I Found PAP";
     }    
@@ -1271,7 +1277,9 @@ available_tasks()
     available_tasks[available_tasks.size] = &"Take this ray gun!";
     available_tasks[available_tasks.size] = &"Disable aim!";
     available_tasks[available_tasks.size] = &"Problems to run?";
-    
+    available_tasks[available_tasks.size] = &"Open random door";
+    available_tasks[available_tasks.size] = &"Ray gun bullets";
+    available_tasks[available_tasks.size] = &"Randomize box price";
 
 	return available_tasks;
 }
@@ -1360,9 +1368,8 @@ CheckForCurrentBox()
 {
 	flag_wait( "initial_blackscreen_passed" );
     if( getdvar( "mapname" ) == "zm_nuked" || getdvar( "mapname" ) == "zm_tomb" )
-    {
         wait 10;
-    }
+    
     for(i = 0; i < level.chests.size; i++)
     {
         level.chests[ i ] thread reset_box();
@@ -1377,7 +1384,11 @@ CheckForCurrentBox()
 
 reset_box()
 {
-	self notify("kill_chest_think");
+    while(is_true(self._box_open))
+    {
+        wait 1;
+    }
+    self notify("kill_chest_think");
     wait .1;
 	if(!self.hidden)
     {
@@ -1409,9 +1420,8 @@ custom_treasure_chest_think()
 			}
 		}
 		else
-		{
 			user = self.forced_user;
-		}
+		
 		if ( user in_revive_trigger() )
 		{
 			wait 0.1;
@@ -1452,35 +1462,34 @@ custom_treasure_chest_think()
 			wait 0.1 ;
 			continue;
 		}
-		else if ( isdefined( self.auto_open ) && is_player_valid( user ) )
+		else if( isdefined( self.auto_open ) && is_player_valid( user ) )
 		{
-			if ( !isdefined( self.no_charge ) )
+			if( !isdefined( self.no_charge ) )
 			{
 				user maps\mp\zombies\_zm_score::minus_to_player_score( self.zombie_cost );
 				user_cost = self.zombie_cost;
 			}
 			else
-			{
 				user_cost = 0;
-			}
+			
 			self.chest_user = user;
 			break;
 		}
-		else if ( is_player_valid( user ) && user.score >= self.zombie_cost )
+		else if( is_player_valid( user ) && user.score >= self.zombie_cost )
 		{
 			user maps\mp\zombies\_zm_score::minus_to_player_score( self.zombie_cost );
 			user_cost = self.zombie_cost;
 			self.chest_user = user;
 			break;
 		}
-		else if ( isdefined( reduced_cost ) && user.score >= reduced_cost )
+		else if( isdefined( reduced_cost ) && user.score >= reduced_cost )
 		{
 			user maps\mp\zombies\_zm_score::minus_to_player_score( reduced_cost );
 			user_cost = reduced_cost;
 			self.chest_user = user;
 			break;
 		}
-		else if ( user.score < self.zombie_cost )
+		else if( user.score < self.zombie_cost )
 		{
 			play_sound_at_pos( "no_purchase", self.origin );
 			user maps\mp\zombies\_zm_audio::create_and_play_dialog( "general", "no_money_box" );
@@ -1494,25 +1503,21 @@ custom_treasure_chest_think()
 	user maps\mp\zombies\_zm_stats::increment_client_stat( "use_magicbox" );
 	user maps\mp\zombies\_zm_stats::increment_player_stat( "use_magicbox" );
 	if ( isDefined( level._magic_box_used_vo ) )
-	{
 		user thread [[ level._magic_box_used_vo ]]();
-	}
+	
 	self thread watch_for_emp_close();
 	if ( isDefined( level.using_locked_magicbox ) && level.using_locked_magicbox )
-	{
 		self thread custom_watch_for_lock();
-	}
+	
 	self._box_open = 1;
 	level.box_open = 1;
 	self._box_opened_by_fire_sale = 0;
 	if ( isDefined( level.zombie_vars[ "zombie_powerup_fire_sale_on" ] ) && level.zombie_vars[ "zombie_powerup_fire_sale_on" ] && !isDefined( self.auto_open ) && self [[ level._zombiemode_check_firesale_loc_valid_func ]]() )
-	{
 		self._box_opened_by_fire_sale = 1;
-	}
+	
 	if ( isDefined( self.chest_lid ) )
-	{
 		self.chest_lid thread treasure_chest_lid_open();
-	}
+	
 	if ( isDefined( self.zbarrier ) )
 	{
 		play_sound_at_pos( "open_chest", self.origin );
@@ -1526,13 +1531,10 @@ custom_treasure_chest_think()
 	thread maps\mp\zombies\_zm_unitrigger::unregister_unitrigger( self.unitrigger_stub );
 	self.zbarrier waittill_any( "randomization_done", "box_hacked_respin" );
 	if ( flag( "moving_chest_now" ) && !self._box_opened_by_fire_sale && isDefined( user_cost ) )
-	{
 		user maps\mp\zombies\_zm_score::add_to_player_score( user_cost, 0 );
-	}
+	
 	if ( flag( "moving_chest_now" ) && !level.zombie_vars[ "zombie_powerup_fire_sale_on" ] && !self._box_opened_by_fire_sale )
-	{
 		self thread treasure_chest_move( self.chest_user );
-	}
 	else
 	{
 		self.grab_weapon_hint = 1;
@@ -1552,13 +1554,9 @@ custom_treasure_chest_think()
                 if(grabber.upgraded_box)
                 {
                     if(maps\mp\zombies\_zm_weapons::can_upgrade_weapon( self.zbarrier.weapon_string ))
-                    {
                         grabber thread treasure_chest_give_weapon( grabber maps\mp\zombies\_zm_weapons::get_upgrade_weapon( self.zbarrier.weapon_string ) );
-                    }
                     else
-                    {
                         grabber thread treasure_chest_give_weapon( self.zbarrier.weapon_string );
-                    }
                 }
                 else
                 {
@@ -2107,6 +2105,7 @@ raygun_always()
         weapon.is_in_box = 0;
     
     level.zombie_weapons[ "ray_gun_zm" ].is_in_box = 1;
+    level.zombie_weapons[ "raygun_mark2_zm" ].is_in_box = 1;
     for(i=0;i<60;i++)
 	{
         while(self maps\mp\zombies\_zm_laststand::player_is_in_laststand() || isdefined(self.afterlife) && self.afterlife)
@@ -2236,14 +2235,8 @@ gungame()
 	keys = getarraykeys( level.zombie_weapons );
 	weaps = array_randomize( keys );
 	weapons = self getWeaponsListPrimaries();
-    if(weapons.size > 2 && self hasperk("specialty_additionalprimaryweapon"))
-        self takeWeapon(weapons[2]);
     
-    if(weapons.size > 1 && !self hasperk("specialty_additionalprimaryweapon"))
-        self takeWeapon(weapons[1]);
-    
-    self giveweapon( weaps[0] );
-	self switchtoweapon( weaps[0] );
+    self weapon_give( weaps[0] );
 	i = 1;
     for(z=0;z<6;z++)
     {
@@ -2251,14 +2244,7 @@ gungame()
         {
             wait 5;
             weapons = self getWeaponsListPrimaries();
-            if(weapons.size > 2 && self hasperk("specialty_additionalprimaryweapon"))
-                self takeWeapon(weapons[2]);
-            
-            if(weapons.size > 1 && !self hasperk("specialty_additionalprimaryweapon"))
-                self takeWeapon(weapons[1]);
-            
-            self giveweapon( weaps[i] );
-            self switchtoweapon( weaps[i] );
+            self weapon_give( weaps[i] );
             i++;
         }
     }
@@ -3432,4 +3418,70 @@ sprinting_issues()
         wait 0.25;
     }
     self allowsprint( 1 );
+}
+
+open_random_door() //opens any door atm which is in the map (in town opens any transit door)
+{
+    self endon("disconnect");
+	level endon("end_game");
+    self endon("end_task_progress");
+    setdvar( "zombie_unlock_all", 1 );
+    players = get_players();
+
+    zombie_doors = getEntArray("zombie_door", "targetname");
+
+    door = randomint(zombie_doors.size);
+    iPrintLn(zombie_doors[door].origin);
+
+    zombie_doors[door] notify( "trigger", players[0] );
+
+    if ( is_true( zombie_doors[door].power_door_ignore_flag_wait ) )
+        zombie_doors[door] notify( "power_on" );
+
+    wait 1;
+    setdvar( "zombie_unlock_all", 0 );
+}
+
+raygun_bullets()
+{
+    self endon("disconnect");
+	level endon("end_game");
+    self endon("end_task_progress");
+    self notify("end_raygun_bullet");
+    self thread waittill_done();
+	for(;;)
+	{
+		while(self maps\mp\zombies\_zm_laststand::player_is_in_laststand() || isdefined(self.afterlife) && self.afterlife)
+        {
+            wait .05;
+        }
+        self waittill("weapon_fired");
+
+        Eye = self getTagOrigin("tag_weapon_right");
+        v = anglesToForward(self getplayerangles());
+        e = (v[0] * 100000000, v[1] * 100000000, v[2] * 100000000);
+        trace = bullettrace(Eye, e, 0, self)["position"];
+        magicBullet("ray_gun_zm", self getTagOrigin("tag_weapon_right"), trace, self);
+    }
+}
+
+waittill_done()
+{
+    self endon("disconnect");
+	level endon("end_game");
+    self endon("end_raygun_bullet");
+    self endon("end_task_progress");
+    wait 30;
+    self notify("end_raygun_bullet");
+}
+
+random_box_price()
+{
+	level endon("end_game");
+	flag_wait( "initial_blackscreen_passed" );
+    for(i = 0; i < level.chests.size; i++)
+    {
+		level.chests[ i ].zombie_cost = (100 * randomIntRange(2, 20));
+        level.chests[ i ] thread reset_box();		
+	}
 }
