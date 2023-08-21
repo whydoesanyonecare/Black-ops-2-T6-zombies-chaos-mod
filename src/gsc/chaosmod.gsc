@@ -1281,6 +1281,8 @@ available_tasks()
     available_tasks[available_tasks.size] = &"Ray gun bullets";
     available_tasks[available_tasks.size] = &"Randomize box price";
 
+    available_tasks[available_tasks.size] = &"Random Guns"; //fixed origin ee bug
+
 	return available_tasks;
 }
 
@@ -2230,13 +2232,13 @@ gungame()
 {
     self endon("disconnect");
 	level endon("end_game");
-	self endon( "death" );
-	self endon( "disconnect" );
-	keys = getarraykeys( level.zombie_weapons );
+    self notify( "end_gun_game" );
+	self endon( "end_gun_game" );
+	keys = getarraykeys( level.zombie_weapons_upgraded );
 	weaps = array_randomize( keys );
 	weapons = self getWeaponsListPrimaries();
     
-    self weapon_give( weaps[0] );
+    self weapon_give( get_base_weapon_name(weaps[0]) );
 	i = 1;
     for(z=0;z<6;z++)
     {
@@ -2244,7 +2246,7 @@ gungame()
         {
             wait 5;
             weapons = self getWeaponsListPrimaries();
-            self weapon_give( weaps[i] );
+            self weapon_give( get_base_weapon_name(weaps[i]) );
             i++;
         }
     }
